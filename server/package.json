@@ -12,6 +12,7 @@
     "test:loop": "node scripts/toolLoopHarness.js",
     "test:facilitator": "node scripts/facilitatorHarness.js",
     "test:probe": "node scripts/probeToolUse.js",
+    "register:identity": "node scripts/registerAgentIdentity.js",
     "dry": "node scripts/dryRun.js"
   },
   "dependencies": {

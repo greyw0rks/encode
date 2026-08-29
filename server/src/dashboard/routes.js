@@ -23,7 +23,7 @@ router.get('/v1/dashboard', (req, res) => {
     payer: i.payer,
     amount: i.settlement?.amount,
     txHash: i.settlement?.txHash,
-    attributed: Boolean(i.attribution?.tag),
+    attributed: Boolean(i.attribution?.attributable),
     verificationDepth: i.verification?.verificationDepth ?? null,
     prUrl: i.pr?.url ?? null,
     createdAt: i.createdAt,
@@ -47,7 +47,13 @@ router.get('/v1/status', async (req, res) => {
   const blockers = [];
   if (!payment.ready) blockers.push(`payment config incomplete: ${payment.missing.join(', ')}`);
   if (!attribution.settlementKeyPresent) blockers.push('X402_API_KEY unset — POST /settle will 401, no payment can complete');
-  if (!attribution.registered) blockers.push('not registered at celobuilders.xyz — settlements will not count on the leaderboard');
+  if (!attribution.agentWallet) {
+    blockers.push('ENCODE_WALLET_ADDRESS unset — x402 settlements are attributed by agent wallet, so nothing would be credited');
+  }
+  if (!attribution.agentId) blockers.push('no ERC-8004 agent identity — required to register at celobuilders.xyz');
+  if (!attribution.attributionTag) {
+    blockers.push('not registered at celobuilders.xyz — no attribution tag, so settlements will not count on the leaderboard');
+  }
 
   res.json({
     service: 'encode-api',

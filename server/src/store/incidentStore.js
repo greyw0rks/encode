@@ -70,7 +70,7 @@ export function getStats() {
   const realPayments = all.filter(isRealPayment);
   const uniquePayers = new Set(realPayments.map((i) => i.payer));
   const totalValue = realPayments.reduce((sum, i) => sum + Number(i.settlement?.amount || 0), 0);
-  const attributed = realPayments.filter((i) => i.attribution?.tag);
+  const attributed = realPayments.filter((i) => i.attribution?.attributable);
 
   return {
     totalJobs: all.length,

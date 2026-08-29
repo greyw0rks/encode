@@ -48,3 +48,15 @@ Also caught: the bash whitelist enumerated `npm run lint|build|typecheck` but no
 - Payload shape for scheme `exact`, confirmed field-by-field because `/verify` names each missing field: `{ x402Version, scheme, network, payload: { signature, authorization: { from, to, value, validAfter, validBefore, nonce } } }`.
 - If `/verify` returns `invalid_format`, Encode is building the wrong request — not the client's problem. `insufficient_funds` on a fake payload means the shape is right.
 - Run `npm run test:facilitator` to re-confirm all of the above against the live API. It attempts no settlement.
+
+## Attribution: the wallet, not the tag
+
+Established from celobuilders.xyz's own API, and it inverts the obvious assumption:
+
+- **An x402 settlement cannot carry an ERC-8021 attribution tag.** The facilitator's relayer submits the settlement transaction, so neither Encode nor the payer controls its calldata. There is nowhere to put the tag.
+- Those settlements are attributed by the **registered agent wallet** (`ENCODE_WALLET_ADDRESS`) instead. It must be on file at celobuilders *at registration*: attribution is retroactive across the whole window, but every leaderboard reads zero until the wallet is registered.
+- The tag still applies to transactions Encode signs itself, and is published in the 402 quote for clients that sign their own. It is not the mechanism for the payment path Encode actually has.
+- A self-derived tag (e.g. from a hostname) is **not credited**. Only the tag celobuilders issues at registration counts.
+- Encode is agent **9794** on Celo mainnet, registry `0x8004a169…a432`, owner `0xc61Bbc0C…0450`. Mint script: `npm run register:identity` — simulates by default, refuses to double-register.
+- Declare any other wallet the project controls in `otherWallets` at submission. Undeclared project-looking wallets are treated as farming signals at audit.
+- Testnet activity counts for nothing, in every track.

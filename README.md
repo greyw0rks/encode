@@ -49,20 +49,22 @@ encode/
 - Coding Agent on two backends — Claude Agent SDK on real Anthropic, Encode's own tool loop on Qwen — with a bash whitelist that rejects push/deploy, chained commands, command substitution, and path escapes.
 - x402 client matching the live facilitator's actual wire format (`npm run test:facilitator` re-confirms against the real API without settling anything).
 
+**Registered on-chain.** Encode's ERC-8004 agent identity is minted on Celo mainnet: [agent 9794](https://www.8004scan.io/agents/celo/9794), owned by `0xc61Bbc0CF5694EF410A578A9833f77C173790450`, resolving to [`agent-registration.json`](agent-registration.json).
+
 **Not yet real:**
 
-- No `X402_API_KEY`, so `POST /settle` would 401 — **no payment can currently complete**. `GET /v1/status` reports this and the other blockers.
-- No hackathon registration, so no `ERC8004_AGENT_ID` / `ERC8021_ATTRIBUTION_TAG` — nothing would count on the leaderboard.
-- No real settlement from an independent wallet, and no client-side snippet for signing one.
+- No `X402_API_KEY`, so `POST /settle` would 401 — **no payment can currently complete**. `GET /v1/status` names this and the other blockers.
+- Not yet registered at celobuilders.xyz, so no `ERC8021_ATTRIBUTION_TAG`.
+- **No client-side signing snippet**, so a payer has no practical way to pay Encode yet. This, not the server code, is the real blocker on moving value.
 - Storage is in-memory. Settlement records don't survive a restart.
-- **This code isn't in git.** The hackathon requires a public, resolving repo.
 
-## Three things that were wrong and are worth knowing
+## Four things that were wrong and are worth knowing
 
-Two found by probing the live facilitator, one only by a real run:
+Two found by probing the live facilitator, one only by a real run, one by reading the hackathon's own API:
 
 1. The facilitator API is at **`api.x402.celo.org`**. `x402.celo.org` is the dashboard SPA and returns HTML for `/verify`.
 2. **`POST /verify` does not move money.** It's an off-chain signature and balance check; settlement is a separate authenticated `POST /settle`. Encode previously treated verification as payment, which would have meant delivering paid work for free.
 3. **`dotenv` does not override ambient environment variables.** An ambient `ANTHROPIC_BASE_URL` silently beat `.env` and produced a 403 from an endpoint that appeared in no config file. `src/config/env.js` now loads with `override: true` and logs what it overrode — import that, never `dotenv/config`.
+4. **An x402 settlement can't carry an attribution tag.** The facilitator's relayer submits it, so neither Encode nor the payer controls the calldata. Settlements are attributed by the registered agent wallet instead, which makes `ENCODE_WALLET_ADDRESS` load-bearing in a way the tag isn't.
 
 See "Facts about the facilitator" and "Verified against a real run" in `AGENTS.md` before writing anything near the payment path or the LLM config.
