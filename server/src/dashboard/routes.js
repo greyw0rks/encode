@@ -24,6 +24,7 @@ router.get('/v1/dashboard', (req, res) => {
     amount: i.settlement?.amount,
     txHash: i.settlement?.txHash,
     attributed: Boolean(i.attribution?.attributable),
+    selfFunded: Boolean(i.settlement?.selfFunded),
     verificationDepth: i.verification?.verificationDepth ?? null,
     prUrl: i.pr?.url ?? null,
     createdAt: i.createdAt,

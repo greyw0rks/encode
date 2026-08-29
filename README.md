@@ -2,18 +2,23 @@
 
 Automated incident diagnosis and fix agent. Pay per resolved incident, settled in stablecoins over x402 on Celo. Built for the Celo **Agents at Work Hackathon** (primary track: Real World Adoption; secondary: Value Moved), submissions close **Sept 14, 09:00 UTC**.
 
+**Want to pay Encode to fix something? Start with [`PAYING.md`](PAYING.md).**
+
 Read these in order before touching code:
 
 1. **`PROJECT.md`** — mission, what "done" looks like, hackathon scoring rules that constrain the design
 2. **`AGENTS.md`** — hard rules for anyone (human or agent) working in this repo, plus verified facts about the x402 facilitator. Read before writing code, not after.
 3. **`BUILD.md`** — environment setup, how to run the test harnesses, deploy notes
-4. **`todo.md`** — current checklist. Keep it updated as you go; it's the source of truth for what's left, not this README.
+4. **`PAYING.md`** — the payer's walkthrough: what you need, what you're agreeing to, what refusals mean
+5. **`todo.md`** — current checklist. Keep it updated as you go; it's the source of truth for what's left, not this README.
 
 ## Repo structure
 
 ```
 encode/
 ├── README.md, PROJECT.md, AGENTS.md, BUILD.md   ← read these first
+├── PAYING.md                                     ← how to actually pay Encode
+├── agent-registration.json                       ← ERC-8004 registration file
 ├── todo.md                                       ← what's left
 ├── landing-page.html                             ← public marketing site
 └── server/                                       ← the actual agent + API

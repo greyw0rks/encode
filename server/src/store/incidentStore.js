@@ -64,13 +64,18 @@ export function getStats() {
   // Test/dry-run markers are deliberately excluded rather than filtered at
   // display time — see AGENTS.md on not producing numbers that could be
   // mistaken for real leaderboard activity.
-  const isRealPayment = (i) =>
-    i.payer && !/TEST|DRYRUN|LIVERUN/i.test(i.payer) && i.settlement?.txHash;
+  const isSettled = (i) => i.payer && !/TEST|DRYRUN|LIVERUN/i.test(i.payer) && i.settlement?.txHash;
 
-  const realPayments = all.filter(isRealPayment);
-  const uniquePayers = new Set(realPayments.map((i) => i.payer));
-  const totalValue = realPayments.reduce((sum, i) => sum + Number(i.settlement?.amount || 0), 0);
-  const attributed = realPayments.filter((i) => i.attribution?.attributable);
+  // A settlement from Encode's own payout address is a real on-chain
+  // transaction and no evidence of anything — it's value moving between two
+  // wallets one party controls. Counted separately, never in uniqueSigners.
+  const isIndependent = (i) => isSettled(i) && !i.settlement?.selfFunded;
+
+  const settled = all.filter(isSettled);
+  const independent = all.filter(isIndependent);
+  const uniquePayers = new Set(independent.map((i) => i.payer.toLowerCase()));
+  const totalValue = independent.reduce((sum, i) => sum + Number(i.settlement?.amount || 0), 0);
+  const attributed = independent.filter((i) => i.attribution?.attributable);
 
   return {
     totalJobs: all.length,
@@ -78,8 +83,9 @@ export function getStats() {
     failed: failed.length,
     uniqueSigners: uniquePayers.size,
     totalValueProcessed: totalValue.toFixed(2),
-    settledPayments: realPayments.length,
+    settledPayments: independent.length,
     attributedPayments: attributed.length,
-    testPayments: all.filter((i) => i.payer && !isRealPayment(i)).length,
+    selfFundedPayments: settled.length - independent.length,
+    testPayments: all.filter((i) => i.payer && !isSettled(i)).length,
   };
 }

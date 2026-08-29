@@ -155,12 +155,25 @@ export function requirePayment(priceFn) {
       return res.status(502).json({ error: 'facilitator_response_incomplete', missing: 'payer' });
     }
 
+    // Paying yourself is a real on-chain settlement and completely worthless
+    // as evidence: it moves value between two wallets one party controls.
+    // The hackathon rules exclude it by rule rather than judgement, so it is
+    // recorded as self-funded and kept out of uniqueSigners — see AGENTS.md
+    // on never producing numbers that could be mistaken for real activity.
+    const selfFunded = payer.toLowerCase() === config.payTo.toLowerCase();
+    if (selfFunded) {
+      console.warn(
+        `[x402] payer ${payer} is Encode's own payout address — recording this settlement as self-funded. It will not count toward uniqueSigners.`
+      );
+    }
+
     req.payer = payer;
     req.settlement = {
       txHash: settlement.txHash,
       amount,
       asset,
       network: settlement.network ?? paymentRequirements.network,
+      selfFunded,
       settledAt: new Date().toISOString(),
     };
 

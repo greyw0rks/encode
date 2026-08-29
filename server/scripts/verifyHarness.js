@@ -196,6 +196,39 @@ function caseBashPolicy() {
   }
 }
 
+/**
+ * Self-funded settlements are real on-chain and worthless as evidence — they
+ * move value between two wallets one party controls. The dashboard must never
+ * count them as signers or volume, because a number that did would be a lie.
+ */
+async function caseSelfFundedExclusion() {
+  console.log('\n[6] Dashboard stats — self-funded and test payments must not inflate the real numbers');
+  const { createIncident, getStats } = await import('../src/store/incidentStore.js');
+  const payout = '0xc61Bbc0CF5694EF410A578A9833f77C173790450';
+
+  const settled = (payer, amount, selfFunded) => ({
+    summary: 's',
+    repo: {},
+    tier: 'fix',
+    payer,
+    settlement: { txHash: `0x${Math.random().toString(16).slice(2)}`, amount, selfFunded },
+    attribution: { attributable: true },
+  });
+
+  createIncident(settled('0xAAAA000000000000000000000000000000000001', '8.00', false));
+  createIncident(settled(payout, '8.00', true));
+  // Same payer, different casing — must not double-count.
+  createIncident(settled('0xaaaa000000000000000000000000000000000001', '1.50', false));
+  createIncident({ summary: 't', repo: {}, tier: 'fix', payer: '0xLIVERUN_TEST', settlement: { txHash: null, amount: '0.00' } });
+
+  const stats = getStats();
+  check('uniqueSigners counts only independent payers', stats.uniqueSigners === 1, String(stats.uniqueSigners));
+  check('address casing does not double-count a signer', stats.uniqueSigners === 1);
+  check('totalValueProcessed excludes the self-funded payment', stats.totalValueProcessed === '9.50', stats.totalValueProcessed);
+  check('selfFundedPayments is reported separately', stats.selfFundedPayments === 1, String(stats.selfFundedPayments));
+  check('test-marked payers are excluded', stats.testPayments === 1, String(stats.testPayments));
+}
+
 async function main() {
   console.log('Encode verification harness — real git, real failing test, no LLM calls.');
 
@@ -204,6 +237,7 @@ async function main() {
   await caseBogusRepro();
   await caseNoRepro();
   caseBashPolicy();
+  await caseSelfFundedExclusion();
 
   console.log(
     failures === 0
