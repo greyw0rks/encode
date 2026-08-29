@@ -122,7 +122,7 @@ Defaults to `:8787`.
 |---|---|
 | `GET /health` | liveness |
 | `GET /v1/status` | LLM path, facilitator health, and what's blocking real payments |
-| `GET /v1/dashboard` | ledger + `uniqueSigners` (the Track 1 number) |
+| `GET /v1/dashboard` | ledger + `uniqueSigners` (gates every track that counts anything) |
 | `POST /v1/incidents` | x402-gated; unpaid requests get a 402 quote |
 | `GET /v1/incidents/:id` | incident status |
 

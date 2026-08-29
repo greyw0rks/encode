@@ -172,7 +172,7 @@ export async function verifyPayment({ header, paymentRequirements }) {
 
 /**
  * Submits the authorization on-chain. This is the step that actually moves
- * value, so it's the step that counts for Track 1 — and the only one that
+ * value, so it's the step that counts for the hackathon — and the only one that
  * needs X402_API_KEY. Without a key the facilitator returns 401, which is
  * why an integration can look healthy until its first real settlement.
  */

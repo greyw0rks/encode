@@ -2,7 +2,7 @@ import { nanoid } from 'nanoid';
 
 /**
  * Incident lifecycle: detected -> diagnosing -> fix_drafted -> resolved -> failed
- * Kept in-memory for the hackathon build. Swap for Postgres (Track 1 doesn't
+ * Kept in-memory for the hackathon build. Swap for Postgres (the leaderboard doesn't
  * care about your storage layer, only the on-chain settlement trail) once
  * this needs to survive a restart.
  */
@@ -51,7 +51,7 @@ export function listIncidents({ limit = 50 } = {}) {
 }
 
 /**
- * Dashboard aggregates. `uniqueSigners` is the number Track 1 actually
+ * Dashboard aggregates. `uniqueSigners` is the number the leaderboard actually
  * judges on, so it's counted from settled payments only — a 402'd or failed
  * request never created an incident, but a test-marked payer must not
  * inflate it either.

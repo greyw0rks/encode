@@ -1,6 +1,6 @@
 # Encode
 
-Automated incident diagnosis and fix agent. Pay per resolved incident, settled in stablecoins over x402 on Celo. Built for the Celo **Agents at Work Hackathon** (Track 1 — Value Moved), submissions close **Sept 14, 09:00 UTC**.
+Automated incident diagnosis and fix agent. Pay per resolved incident, settled in stablecoins over x402 on Celo. Built for the Celo **Agents at Work Hackathon** (primary track: Real World Adoption; secondary: Value Moved), submissions close **Sept 14, 09:00 UTC**.
 
 Read these in order before touching code:
 
@@ -49,13 +49,13 @@ encode/
 - Coding Agent on two backends — Claude Agent SDK on real Anthropic, Encode's own tool loop on Qwen — with a bash whitelist that rejects push/deploy, chained commands, command substitution, and path escapes.
 - x402 client matching the live facilitator's actual wire format (`npm run test:facilitator` re-confirms against the real API without settling anything).
 
-**Registered on-chain.** Encode's ERC-8004 agent identity is minted on Celo mainnet: [agent 9794](https://www.8004scan.io/agents/celo/9794), owned by `0xc61Bbc0CF5694EF410A578A9833f77C173790450`, resolving to [`agent-registration.json`](agent-registration.json).
+**Registered.** ERC-8004 agent identity minted on Celo mainnet — [agent 9794](https://www.8004scan.io/agents/celo/9794), owner `0xc61Bbc0CF5694EF410A578A9833f77C173790450`, resolving to [`agent-registration.json`](agent-registration.json). Registered at celobuilders.xyz with attribution tag `celo_4bec1b4754cb`. `GET /v1/status` reports `canTakeRealPayments: true` with no blockers: the settlement key is in place and verified against the live facilitator.
 
 **Not yet real:**
 
-- No `X402_API_KEY`, so `POST /settle` would 401 — **no payment can currently complete**. `GET /v1/status` names this and the other blockers.
-- Not yet registered at celobuilders.xyz, so no `ERC8021_ATTRIBUTION_TAG`.
-- **No client-side signing snippet**, so a payer has no practical way to pay Encode yet. This, not the server code, is the real blocker on moving value.
+- **No client-side signing snippet.** The server can quote, verify and settle, but a payer has no practical way to produce an `X-PAYMENT` header — so nobody has paid Encode yet. This is the only thing in the way.
+- The celobuilders submission is a **draft**. Publishing needs the X/Twitter post URL and happens before Sept 14, 09:00 UTC; drafts show on the leaderboard flagged as not eligible.
+- No real users and no real settlement. Every track that counts anything is gated on distinct independent signers.
 - Storage is in-memory. Settlement records don't survive a restart.
 
 ## Four things that were wrong and are worth knowing

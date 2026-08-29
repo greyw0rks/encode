@@ -125,7 +125,7 @@ export function requirePayment(priceFn) {
     const payer = settlement.payerAddress || verification.payerAddress;
     if (!payer) {
       // Without a payer address there's no signer to count and no way to
-      // audit independence — the number Track 1 is actually judged on.
+      // audit independence — the number every track is actually gated on.
       console.error('[x402] settled but no payer address returned');
       return res.status(502).json({ error: 'facilitator_response_incomplete', missing: 'payer' });
     }

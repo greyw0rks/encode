@@ -6,21 +6,26 @@ Encode is an agent that watches a website, diagnoses real incidents, drafts a te
 
 ## Why this shape, specifically
 
-The Celo "Agents at Work" hackathon doesn't reward agents that merely *use* AI — it rewards agents that **move real value between independent parties**. An SRE bot that emails you a diagnosis is a dev tool. An SRE agent that a stranger's wallet pays, on-chain, for a resolved incident is an economic actor. That distinction is the entire point of this build — every architecture decision (pay-then-deliver, PR-opened-not-merged pricing, attribution tagging) exists to make the payment real and auditable, not just a UI mockup.
+The Celo "Agents at Work" hackathon doesn't reward agents that merely *use* AI — it rewards agents that do real work for parties who don't control each other's wallets. An SRE bot that emails you a diagnosis is a dev tool. An SRE agent that a stranger's wallet pays, on-chain, for a resolved incident is an economic actor. That distinction is the entire point of this build — every architecture decision (pay-then-deliver, PR-opened-not-merged pricing, honest verification depth) exists to make the transaction real and auditable, not a UI mockup.
 
 ## Hackathon target
 
-- **Primary: Track 1, Value Moved** ($2,000 pool). Win condition: most value moved between independent parties during Aug 28 – Sep 14. Independent means: not our wallet, not first-funded by us, has Celo activity from before Aug 28.
-- **Secondary: Track 3, AskBots** (free to enter, just register + get reviewed twice) and **Track 5, "Buy" beta feedback** (only if Encode itself pays for its own inference through the Buy marketplace — not required, opportunistic).
-- **Not pursuing:** Track 2 (Real World Adoption) unless a real distribution channel materializes — don't build for it speculatively.
+Registered 2026-08-29. Agent identity: ERC-8004 **9794** on Celo mainnet. Attribution tag: **`celo_4bec1b4754cb`**. Agent wallet: `0xc61Bbc0CF5694EF410A578A9833f77C173790450`.
+
+- **Primary: Real World Adoption.** Measured on verified users (wallets with Celo activity from before Aug 28), returning users (active on 2+ distinct days), and distinct signers/authorisers — including EIP-3009 authorisers and sponsored-relay signers, not just gas payers. Nothing in this track is about money moved.
+- **Secondary: Value Moved.** Ranked on adjusted volume between independent parties, gated on distinct signers. Encode's per-incident pricing makes it a natural fit, but volume needs paying strangers, and it's the harder ask. One line at submission on what Encode demonstrates here.
+- **Opportunistic: Judges' Favorite** — no extra work; it's a panel choice over what's already built.
+- **Not pursuing:** AskBots CLI Growth (needs two review rounds on askbots.ai, a separate product surface) and cPay feedback (buyer-side testing of a closed beta, unrelated to what Encode does).
+
+Why the switch from Value Moved as primary: it's ranked on volume between independent wallets, and Encode has moved $0 with no client-side way for a payer to sign yet. Real World Adoption counts users and authorisers rather than dollars, which is reachable with the same distribution work — and doesn't require pretending self-funded volume is adoption. Note the pool is **$5,000 in CELO** across five tracks, not $2,000 for one.
 
 ## What "done" looks like
 
 Not "the code runs." Specifically:
 
-1. A real, independent wallet (not ours, pre-existing Celo history) pays Encode for a real incident on a real repo, over x402, and the settlement is tagged with our ERC-8021 attribution code so it counts on the leaderboard. "Pays" means `POST /settle` returned a transaction — a verified-but-unsettled authorization is not a payment.
+1. A real, independent wallet (not ours, pre-existing Celo history) pays Encode for a real incident on a real repo, over x402. "Pays" means `POST /settle` returned a transaction — a verified-but-unsettled authorization is not a payment. Settlement is credited to Encode via the registered agent wallet, since a facilitator-relayed transaction can't carry the attribution tag.
 2. Encode's diagnosis is correct enough that the resulting PR is mergeable, not just "technically opened."
-3. The dashboard (`GET /v1/dashboard`) truthfully shows `uniqueSigners` — that's the number that decides Track 1, not `totalValueProcessed`. Test and dry-run payers are excluded from it.
+3. The dashboard (`GET /v1/dashboard`) truthfully shows `uniqueSigners` — distinct signers gate every track that counts anything. Test and dry-run payers are excluded from it.
 4. Submission is filed through the `celobuilders` skill before Sept 14, 09:00 UTC, with the repo public and resolving.
 
 ## Explicit non-goals

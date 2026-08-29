@@ -4,16 +4,21 @@ Keep this updated as work happens — check items off, add new ones as they're d
 
 ## Blocking — needed before this is a real submission
 
-- [ ] **Get an `X402_API_KEY` from the dashboard at `x402.celo.org`** (connect wallet → create API key → sign an off-chain message, no gas). Without it `POST /settle` returns 401 and **no payment can complete** — `/verify` works fine without a key, so this breaks silently. `GET /v1/status` reports it as a blocker. This is the last code-side blocker.
-- [ ] Register at `celobuilders.xyz` for `ERC8021_ATTRIBUTION_TAG`. Needs `projectName`, public `githubUrl`, personal `telegram` handle, `primaryTrack` (`value-moved`), `erc8004Url` (done — agent 9794) and `agentWalletAddress` (done). Only the Telegram handle and the track confirmation are missing.
-- [ ] Ship a client-side snippet that signs an EIP-3009 authorization. **This is the real Track 1 blocker** — even with everything above done, a payer has no practical way to pay Encode.
-- [ ] Test one real x402 payment end-to-end (needs a funded independent wallet with pre-28-Aug Celo history)
+- [ ] **Ship a client-side snippet that signs an EIP-3009 authorization.** This is now the only thing standing between Encode and a real payment: the server can quote, verify, and settle, but a payer has no practical way to produce an `X-PAYMENT` header. Nothing else on this list matters until this exists.
+- [ ] Find real users. Primary track is **Real World Adoption**, measured on verified users (pre-28-Aug Celo activity), returning users (2+ distinct days), and distinct signers/authorisers — not volume. EIP-3009 authorisers and sponsored-relay signers both count.
+- [ ] Test one real x402 payment end-to-end from an independent wallet
+- [ ] Publish the X/Twitter post and capture its URL — `socialLink` is a **required submission-stage field** and must be the real post, not a placeholder
+- [ ] Fill remaining submission-stage fields: `celoNetwork` (`celo-mainnet`), and declare `otherWallets` / `ownContracts`. Declaring is in your interest — undeclared project-looking wallets are treated as farming signals at audit. Note `0xc61Bbc0C…0450` is the shared Arcadia deployer, so Arcadia's contracts are worth listing.
+- [ ] Publish the submission (`POST /submissions/me/publish`) before **Sept 14, 09:00 UTC**. It is currently a **draft**, and drafts appear on the leaderboard flagged as not eligible.
 
 ## Done
 
+- [x] **Registered at celobuilders.xyz** (2026-08-29). Attribution tag **`celo_4bec1b4754cb`**, participant `bd57f400…`, submission `3f022c8c…` (status: draft). Primary track `real-world-adoption`. The connection credential is a `sk-celo-hackathon_…` bearer token, held outside the repo.
+- [x] **`X402_API_KEY` in place and verified against the live facilitator.** Confirmed by contrast: the real key reaches `400 insufficient_funds` on a deliberately unfundable payload, a fake key gets `401 Invalid API key`. So the key authenticates and no credits were spent proving it.
+- [x] **`GET /v1/status` reports `canTakeRealPayments: true` with zero blockers.** Agent 9794, tag on file, wallet on file, settlement key present.
 - [x] **ERC-8004 agent identity minted on Celo mainnet.** `agentId 9794`, owner `0xc61Bbc0C…0450`, tx [`0xd5e2e7e9…`](https://celoscan.io/tx/0xd5e2e7e9925d422f11c6e8d162cf49231445df579405d7e6dc9c4079c0215ca6), cost 0.037 CELO. The token's `agentURI` is `agent-registration.json` in this repo, which resolves. Re-runnable via `npm run register:identity` — simulates unless `--broadcast`, and refuses if `ERC8004_AGENT_ID` is already set.
 - [x] **Encode is in git and public**: [`greyw0rks/encode`](https://github.com/greyw0rks/encode), verified 200. The rules require the repo public *at registration*, not at submission.
-- [x] `ENCODE_WALLET_ADDRESS` = `0xc61Bbc0C…0450` (the Arcadia deployer — genuine pre-28-Aug Celo history, nonce 96). **This is the address x402 settlements are attributed by**, since the facilitator's relayer submits the settlement tx and no tag can ride along. It must be the `agentWalletAddress` given at registration, or every leaderboard reads zero.
+- [x] `ENCODE_WALLET_ADDRESS` = `0xc61Bbc0C…0450` (the Arcadia deployer — genuine pre-28-Aug Celo history, nonce 96). **This is the address x402 settlements are attributed by**, since the facilitator's relayer submits the settlement tx and no tag can ride along.
 - [x] **The full fix pipeline works against a real repo, end to end.** Verified 2026-08-29 on `greyw0rks/encore-testbed` (a throwaway repo with a real off-by-one in cursor pagination): real Qwen calls, real patch, real tests, real push, real PR — [encore-testbed#1](https://github.com/greyw0rks/encore-testbed/pull/1), +27/-2 across 2 files, `verificationDepth: repro-confirmed`. The Coding Agent read the code, ran the repro, fixed `start = index` → `start = index + 1`, added two regression tests that walk page boundaries, and wrote an accurate PR description. Payment was the only mocked step.
 - [x] Confirmed the Qwen tool loop works against Qwen's *actual* tool-calling behaviour, not just a scripted stand-in. `scripts/probeToolUse.js` is the cheap two-turn check; run it first when an endpoint misbehaves.
 - [x] Verified `facilitator.js` against the live API by probing it (`npm run test:facilitator`). Two real bugs found and fixed:
@@ -60,15 +65,16 @@ Keep this updated as work happens — check items off, add new ones as they're d
 - [ ] Reskin to the new reference design (cream/paper background, serif headline, teal highlight, isometric illustration) — in progress
 - [ ] "Standing watch" tier is marked "not yet live" — either build endpoint monitoring or drop the tier before submission
 
-## Distribution (Track 1 needs real independent signers)
+## Distribution (every track that counts anything is gated on distinct signers)
 
 - [ ] Identify real Celo dev communities/Discords to offer Encode to
-- [ ] Get at least a few genuinely independent wallets (pre-Aug-28 Celo history, not funded by us) to actually pay for a real incident
-- [ ] Ship a client-side snippet that signs an EIP-3009 authorization — right now a payer has no easy way to actually pay Encode, which is the real distribution blocker
+- [ ] Get genuinely independent wallets (pre-Aug-28 Celo history, not funded by us) to actually use Encode. For Real World Adoption they need to be *users*; for Value Moved they need to *pay*.
+- [ ] Join the hackathon Telegram (link on the celobuilders hackathon page) — that's where updates land
 
 ## Submission
 
-- [ ] File through the `celobuilders` skill before **Sept 14, 09:00 UTC**
-- [ ] Confirm repo is public and resolves (rule: two entries got disqualified last hackathon for a 404'ing repo) — note the code currently isn't in git at all
-- [ ] Publish the required X/Twitter post tagging @CeloDevs + @Celo with the ERC-8004 registry link
-- [ ] `greyw0rks/encore-testbed` and its PR #1 are the demo artifact — a real Encode-authored fix on a real repo. Keep both public and link them in the submission.
+- [x] Registered (draft saved) through the `celobuilders` skill — tag issued
+- [x] Repo public and resolving: [`greyw0rks/encode`](https://github.com/greyw0rks/encode) returns 200 (rule: two entries got disqualified last hackathon for a 404'ing repo)
+- [ ] **Publish** the submission before **Sept 14, 09:00 UTC** — it's a draft until then, and drafts show on the leaderboard as not eligible
+- [ ] Publish the X/Twitter post tagging @CeloDevs + @Celo with the ERC-8004 registry link, and send its URL as `socialLink` (required to publish)
+- [ ] `greyw0rks/encore-testbed` and its PR #1 are the demo artifact — a real Encode-authored fix on a real repo. Keep both public and link them in the submission. Note the repo keeps the pre-rename name.

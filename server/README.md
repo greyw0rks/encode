@@ -2,7 +2,7 @@
 
 Automated incident diagnosis and fix agent. Pay per resolved incident, settled in stablecoins over x402 on Celo. No retainer, no subscription.
 
-Built for the Celo **Agents at Work Hackathon** — targeting **Track 1 (Value Moved)**, with `AskBots` (Track 3) and `Buy` beta feedback (Track 5) as secondary.
+Built for the Celo **Agents at Work Hackathon** — primary track **Real World Adoption**, with **Value Moved** secondary. Registered as ERC-8004 agent [9794](https://www.8004scan.io/agents/celo/9794) on Celo mainnet.
 
 ## Architecture
 
@@ -72,20 +72,22 @@ npm install
 npm run dev
 ```
 
-Register with Celo before your first real settlement:
+Registration order matters: mint the ERC-8004 identity first (`npm run register:identity`, a real Celo mainnet tx costing ~0.04 CELO), because celobuilders requires the agent ID.
 
 ```bash
 npx skills add https://celobuilders.xyz
 # then ask your agent: "Help me register for the Agents at Work Hackathon"
 ```
 
-This gets you `ERC8021_ATTRIBUTION_TAG` and an `ERC8004_AGENT_ID` for `.env` — every settled transaction needs the tag or it doesn't count on the leaderboard.
+That returns `ERC8021_ATTRIBUTION_TAG`. **Settlements are attributed by `ENCODE_WALLET_ADDRESS`, not by the tag** — the facilitator's relayer submits the settlement transaction, so no tag can ride along on it. Register that exact address or every leaderboard reads zero.
 
-## Track 1 fit — what counts, what doesn't
+## What counts, what doesn't
 
-- Payer wallet must be **independent**: not one you registered, not first-funded by you, with Celo activity from before Aug 28. `req.payer` is captured at payment-verification time specifically so this can be audited.
-- Volume is **signer-gated**. `GET /v1/dashboard` surfaces `uniqueSigners` at equal weight to `totalValueProcessed` for this reason — a handful of wallets moving a lot doesn't place.
-- Distribution beats a general-purpose pitch: point this at a Discord/Telegram of real Celo builders who'd actually pay to have their incidents triaged, rather than a demo-only flow.
+- Counterparties must be **independent**: not a wallet you registered, not first-funded by you or your dominant funder, and with Celo activity from before Aug 28. `req.payer` is captured at settlement time specifically so this can be audited.
+- Everything is **signer-gated**. `GET /v1/dashboard` surfaces `uniqueSigners` at equal weight to `totalValueProcessed` for this reason — a handful of wallets moving a lot doesn't place.
+- EIP-3009 authorisers and sponsored-relay signers count as users, not just gas payers. Gas paid by the facilitator's relayer is not builder contribution.
+- Testnet activity counts for nothing, in every track.
+- Distribution beats a general-purpose pitch: point this at a Discord/Telegram of real Celo builders with real repos, rather than a demo-only flow.
 
 ## Not built yet (explicitly out of scope for v1)
 

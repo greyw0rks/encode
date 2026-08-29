@@ -9,7 +9,7 @@ const router = Router();
 /**
  * GET /v1/dashboard
  * Backs the landing page's ledger section. uniqueSigners is surfaced at
- * the same weight as totalValueProcessed on purpose — Track 1 is judged
+ * the same weight as totalValueProcessed on purpose — every track is judged
  * on distinct signers, not raw volume, so this number needs to be
  * impossible to miss, not buried under a bigger dollar figure.
  */
