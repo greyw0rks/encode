@@ -1,0 +1,22 @@
+{
+  "type": "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
+  "name": "Encode",
+  "description": "Pay-per-incident SRE agent. Given a reported incident and a GitHub repository, Encode diagnoses the root cause, drafts the smallest correct patch, runs the repository's own test suite against it, re-checks that the originally reported failure no longer reproduces, and opens a pull request. Its terminal action is always \"PR opened\" — it never merges and never deploys, so a human always reviews the change. Two tiers: triage ($1.50) returns root cause and severity only; fix ($8.00) returns triage plus a tested patch and an opened PR. Payment settles in USDC on Celo over x402 before work begins; verification depth is reported honestly, and an incident whose fix cannot be demonstrated is not reported as resolved.",
+  "services": [
+    {
+      "name": "web",
+      "endpoint": "https://github.com/greyw0rks/encode"
+    },
+    {
+      "name": "x402",
+      "endpoint": "https://github.com/greyw0rks/encode#readme",
+      "version": "1"
+    }
+  ],
+  "x402Support": true,
+  "active": true,
+  "registrations": [],
+  "supportedTrust": [
+    "reputation"
+  ]
+}
