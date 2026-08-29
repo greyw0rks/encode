@@ -33,7 +33,22 @@
   }
   a{color:inherit; text-decoration:none;}
   .wrap{max-width:1180px; margin:0 auto; padding:0 32px;}
+  @media(max-width:560px){ .wrap{padding:0 20px;} }
   ::selection{background:var(--mark); color:var(--ink);}
+
+  /* Keyboard focus was invisible before — every interactive element needs it. */
+  a:focus-visible, button:focus-visible{
+    outline:2px solid var(--ink); outline-offset:3px; border-radius:2px;
+  }
+  .skip-link{
+    position:absolute; left:-9999px; top:0; background:var(--ink); color:var(--pill-text);
+    padding:10px 16px; z-index:10; font-size:0.85rem;
+  }
+  .skip-link:focus{ left:8px; top:8px; }
+  @media(prefers-reduced-motion:reduce){
+    html{scroll-behavior:auto;}
+    *{animation-duration:0.01ms !important; transition-duration:0.01ms !important;}
+  }
 
   /* Outer framed page with dashed corner + crosshair marks, like the reference */
   .framed{
@@ -51,6 +66,8 @@
   .crosshair::before,.crosshair::after{content:''; position:absolute; background:var(--line-strong);}
   .crosshair::before{width:100%; height:1px; top:50%; left:0;}
   .crosshair::after{width:1px; height:100%; left:50%; top:0;}
+  /* Absolutely-positioned decoration overlaps content on small screens. */
+  @media(max-width:900px){ .crosshair{display:none;} }
 
   nav{ padding:22px 0; border-bottom:1px solid var(--line); }
   nav .wrap{display:flex; align-items:center; justify-content:space-between;}
@@ -64,6 +81,22 @@
   .pill:hover{border-color:var(--ink); color:var(--ink);}
   .pill.dark{background:var(--pill); color:var(--pill-text); border-color:var(--pill); display:flex; align-items:center; gap:6px;}
   @media(max-width:760px){ .nav-pills a:not(.dark){display:none;} }
+
+  /* STATUS STRIP — verifiable facts, linked to their on-chain source */
+  .status-strip{
+    border-bottom:1px solid var(--line); background:var(--bg-card-2);
+    font-family:var(--mono); font-size:0.72rem; color:var(--ink-dim);
+  }
+  .status-strip .wrap{
+    display:flex; flex-wrap:wrap; gap:10px 26px; align-items:center; padding:10px 32px;
+  }
+  .status-strip a{ border-bottom:1px solid var(--line-strong); }
+  .status-strip a:hover{ border-color:var(--ink); color:var(--ink); }
+  .status-dot{
+    display:inline-block; width:6px; height:6px; border-radius:50%;
+    background:var(--up); margin-right:7px; vertical-align:1px;
+  }
+  .status-dot.pending{ background:var(--mark-2); }
 
   /* HERO */
   .hero{ padding:80px 0 90px; position:relative; }
@@ -92,6 +125,12 @@
   .btn-outline{
     border:1px solid var(--ink); font-size:0.88rem; font-weight:500;
     padding:12px 20px; border-radius:20px;
+  }
+  .btn-primary:hover{ background:#000; }
+  .btn-outline:hover{ background:var(--bg-card); }
+  @media(max-width:420px){
+    .hero-ctas{ flex-direction:column; align-items:stretch; }
+    .hero-ctas a{ text-align:center; }
   }
 
   /* ISOMETRIC ILLUSTRATION */
@@ -136,14 +175,34 @@
   @media(max-width:860px){ .pricing-grid{grid-template-columns:1fr;} }
 
   /* LEDGER */
-  .ledger{ border:1px solid var(--line-strong); background:var(--bg-card-2); }
-  table{ width:100%; border-collapse:collapse; font-size:0.83rem; }
+  .ledger{ border:1px solid var(--line-strong); background:var(--bg-card-2); overflow-x:auto; }
+  table{ width:100%; border-collapse:collapse; font-size:0.83rem; min-width:600px; }
   th{ text-align:left; padding:13px 18px; font-family:var(--mono); font-weight:500; color:var(--ink-faint); font-size:0.7rem; text-transform:uppercase; letter-spacing:0.05em; border-bottom:1px solid var(--line-strong); }
   td{ padding:14px 18px; border-bottom:1px solid var(--line); color:var(--ink-dim); }
   tr:last-child td{ border-bottom:none; }
   td.mono, th.mono{ font-family:var(--mono); }
   td.amt{ color:var(--up); font-family:var(--mono); font-weight:600; }
   .tx-link{ color:var(--ink); font-family:var(--mono); font-size:0.78rem; border-bottom:1px solid var(--ink-faint); }
+
+  /* Stat row above the ledger — uniqueSigners is the number that matters,
+     so it gets its own visual weight instead of hiding in a caption. */
+  .stat-row{
+    display:grid; grid-template-columns:repeat(4,1fr); gap:1px;
+    background:var(--line); border:1px solid var(--line-strong); border-bottom:none;
+  }
+  .stat{ background:var(--bg-card); padding:18px 20px; }
+  .stat-val{ font-family:var(--disp); font-weight:600; font-size:1.6rem; line-height:1.1; }
+  .stat-label{
+    font-family:var(--mono); font-size:0.68rem; color:var(--ink-faint);
+    text-transform:uppercase; letter-spacing:0.06em; margin-top:6px;
+  }
+  @media(max-width:700px){ .stat-row{grid-template-columns:1fr 1fr;} }
+
+  /* Visible to screen readers only — table captions that shouldn't render. */
+  .sr-only{
+    position:absolute; width:1px; height:1px; padding:0; margin:-1px;
+    overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;
+  }
 
   /* AGENTS/DOCS */
   .two-col{ display:grid; grid-template-columns:1fr 1fr; gap:44px; align-items:start; }
@@ -155,6 +214,20 @@
   .code-panel .c1{ color:#8C9490; } .code-panel .c2{ color:var(--mark); } .code-panel .c3{ color:#B9E8C9; } .code-panel .c4{ color:var(--mark-2); }
   @media(max-width:860px){ .two-col{grid-template-columns:1fr;} }
 
+  /* Tabbed code panel — the 402 exchange and the signing snippet are two
+     different questions ("what does it return" vs "how do I pay"), so they
+     get two panels rather than one long scroll. */
+  .code-tabs{ display:flex; gap:6px; margin-bottom:10px; }
+  .code-tab{
+    font-family:var(--mono); font-size:0.72rem; padding:7px 13px; border-radius:14px;
+    border:1px solid var(--line-strong); color:var(--ink-dim); background:transparent; cursor:pointer;
+  }
+  .code-tab[aria-selected="true"]{ background:var(--ink); color:var(--pill-text); border-color:var(--ink); }
+  .code-panel[hidden]{ display:none; }
+  .panel-note{
+    font-family:var(--mono); font-size:0.7rem; color:var(--ink-faint); margin-top:10px; line-height:1.6;
+  }
+
   footer{ border-top:1px solid var(--line); padding:40px 0; }
   .foot-row{ display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; }
   .foot-links{ display:flex; gap:22px; font-size:0.84rem; color:var(--ink-dim); }
@@ -163,6 +236,8 @@
 </style>
 </head>
 <body>
+
+<a href="#hero" class="skip-link">Skip to content</a>
 
 <div class="framed">
   <div class="crosshair" style="top:24px; left:520px;"></div>
@@ -183,6 +258,15 @@
     </div>
   </nav>
 
+  <div class="status-strip">
+    <div class="wrap">
+      <span><span class="status-dot"></span>ERC-8004 agent <a href="https://www.8004scan.io/agents/celo/9794" target="_blank" rel="noopener">9794</a> on Celo mainnet</span>
+      <span>x402 <a href="https://api.x402.celo.org/health" target="_blank" rel="noopener">facilitator</a> · USDC</span>
+      <span><a href="https://github.com/greyw0rks/encode" target="_blank" rel="noopener">Source</a></span>
+      <span><span class="status-dot pending"></span>No settlements yet</span>
+    </div>
+  </div>
+
   <header class="hero" id="hero">
     <div class="wrap">
       <div class="hero-grid">
@@ -195,13 +279,13 @@
           </div>
 
           <div class="hero-ctas">
-            <a href="#pricing" class="btn-primary">Hire Encode</a>
-            <a href="#agents" class="btn-outline">Integrate as an agent →</a>
+            <a href="#agents" class="btn-primary">See how to pay</a>
+            <a href="#pricing" class="btn-outline">Pricing →</a>
           </div>
         </div>
 
-        <div class="illus">
-          <svg viewBox="0 0 420 460" xmlns="http://www.w3.org/2000/svg">
+        <div class="illus" aria-hidden="true">
+          <svg viewBox="0 0 420 460" xmlns="http://www.w3.org/2000/svg" role="presentation" focusable="false">
             <!-- isometric grid dots -->
             <g stroke="var(--line)" stroke-width="1" fill="none" opacity="0.6">
               <line x1="0" y1="60" x2="420" y2="60"/>
@@ -314,17 +398,24 @@
       <div class="section-head">
         <div class="eyebrow">On-chain ledger</div>
         <h2>Every payment, settled and visible.</h2>
-        <p class="section-sub">Nothing is invoiced. Each row is a real x402 settlement on Celo, pulled live from Encode's own dashboard endpoint.</p>
+        <p class="section-sub">Nothing is invoiced. Each row is a real x402 settlement on Celo, pulled live from Encode's own dashboard endpoint — including the ones where verification came up short.</p>
+      </div>
+      <div class="stat-row">
+        <div class="stat"><div class="stat-val" id="stat-signers">—</div><div class="stat-label">Independent signers</div></div>
+        <div class="stat"><div class="stat-val" id="stat-value">—</div><div class="stat-label">Settled</div></div>
+        <div class="stat"><div class="stat-val" id="stat-resolved">—</div><div class="stat-label">Incidents resolved</div></div>
+        <div class="stat"><div class="stat-val" id="stat-confirmed">—</div><div class="stat-label">Repro-confirmed</div></div>
       </div>
       <div class="ledger">
         <table>
+          <caption class="sr-only">Settled x402 payments to Encode</caption>
           <thead><tr><th>Incident</th><th class="mono">Payer</th><th class="mono">Settlement</th><th class="mono">Amount</th></tr></thead>
           <tbody id="ledger-rows">
             <tr><td colspan="4" class="mono" style="color:var(--ink-faint);">Loading…</td></tr>
           </tbody>
         </table>
       </div>
-      <p class="mono" id="ledger-stats" style="margin-top:14px;font-size:0.75rem;color:var(--ink-faint);"></p>
+      <p class="mono" id="ledger-stats" style="margin-top:14px;font-size:0.72rem;color:var(--ink-faint);line-height:1.6;"></p>
     </div>
   </section>
 
@@ -336,10 +427,17 @@
       </div>
       <div class="two-col">
         <div>
-          <p>Encode doesn't require an account, an API key negotiation, or a support ticket. Send a request; if payment is required, you'll get a 402 back with the price and Encode's wallet. Sign, retry, done.</p>
-          <p>That means your own monitoring agent, CI pipeline, or another autonomous agent can hire Encode programmatically — no human in the loop on either side.</p>
+          <p>Encode doesn't require an account, an API key negotiation, or a support ticket. Send a request; if payment is required you get a 402 back carrying the price, the payout address, and the exact EIP-712 domain to sign against. Sign, retry, done.</p>
+          <p>Signing costs no gas and moves nothing on its own. What you sign is an EIP-3009 authorization: permission for one pull, of one amount, inside a time window you set. The x402 facilitator submits it on-chain and pays that gas.</p>
+          <p>That means your monitoring agent, CI pipeline, or another autonomous agent can hire Encode programmatically, with no human in the loop on either side. The client below is <a href="https://github.com/greyw0rks/encode/blob/main/server/src/client/x402Client.js" target="_blank" rel="noopener" style="border-bottom:1px solid var(--ink-faint);">~200 lines with one dependency</a> — copy it, or read it and decide it's safe to sign with.</p>
         </div>
-        <div class="code-panel">
+        <div>
+          <div class="code-tabs" role="tablist" aria-label="Integration examples">
+            <button class="code-tab" role="tab" id="tab-http" aria-controls="panel-http" aria-selected="true">402 exchange</button>
+            <button class="code-tab" role="tab" id="tab-sign" aria-controls="panel-sign" aria-selected="false">Pay it</button>
+          </div>
+
+          <div class="code-panel" id="panel-http" role="tabpanel" aria-labelledby="tab-http">
 <span class="c1">POST</span> /v1/incidents <span class="c1">HTTP/1.1</span>
 <span class="c1">Host:</span> encode.agent
 
@@ -350,10 +448,15 @@
     <span class="c2">"scheme"</span>: <span class="c3">"exact"</span>,
     <span class="c2">"network"</span>: <span class="c3">"celo"</span>,
     <span class="c2">"maxAmountRequired"</span>: <span class="c3">"8000000"</span>,
-    <span class="c2">"asset"</span>: <span class="c3">"0xcEBA…118C"</span>,
-    <span class="c2">"payTo"</span>: <span class="c3">"0xE3c0…rec1"</span>
+    <span class="c2">"asset"</span>: <span class="c3">"0xcebA…118C"</span>,
+    <span class="c2">"payTo"</span>: <span class="c3">"0xc61B…0450"</span>
   }],
-  <span class="c2">"quote"</span>: { <span class="c2">"usd"</span>: <span class="c3">"8.00"</span>, <span class="c2">"asset"</span>: <span class="c3">"USDC"</span> }
+  <span class="c2">"quote"</span>: { <span class="c2">"usd"</span>: <span class="c3">"8.00"</span>, <span class="c2">"asset"</span>: <span class="c3">"USDC"</span> },
+  <span class="c2">"eip712"</span>: {
+    <span class="c2">"primaryType"</span>: <span class="c3">"TransferWithAuthorization"</span>,
+    <span class="c2">"domain"</span>: { <span class="c2">"name"</span>: <span class="c3">"USDC"</span>, <span class="c2">"version"</span>: <span class="c3">"2"</span>,
+                <span class="c2">"chainId"</span>: <span class="c3">42220</span> }
+  }
 }
 
 <span class="c1">POST</span> /v1/incidents <span class="c1">HTTP/1.1</span>
@@ -365,6 +468,33 @@
   <span class="c2">"status"</span>: <span class="c3">"detected"</span>,
   <span class="c2">"statusUrl"</span>: <span class="c3">"/v1/incidents/inc_8Kd2mQ…"</span>
 }</div>
+
+          <div class="code-panel" id="panel-sign" role="tabpanel" aria-labelledby="tab-sign" hidden>
+<span class="c1">import</span> { Wallet } <span class="c1">from</span> <span class="c3">'ethers'</span>;
+<span class="c1">import</span> { payAndRequest } <span class="c1">from</span> <span class="c3">'./x402Client.js'</span>;
+
+<span class="c1">// Quote, sign, retry — one call.</span>
+<span class="c1">const</span> result = <span class="c1">await</span> <span class="c2">payAndRequest</span>({
+  url: <span class="c3">'https://encode.agent/v1/incidents'</span>,
+  body: {
+    summary: <span class="c3">'Export job emits duplicate rows'</span>,
+    repo: { owner: <span class="c3">'you'</span>, name: <span class="c3">'your-app'</span> },
+    tier: <span class="c3">'fix'</span>,
+  },
+  signer: <span class="c1">new</span> <span class="c2">Wallet</span>(process.env.<span class="c2">PRIVATE_KEY</span>),
+
+  <span class="c1">// Refuses to sign above this. Without it, a</span>
+  <span class="c1">// buggy server could quote any amount.</span>
+  maxAmountUsd: <span class="c3">10</span>,
+});
+
+console.<span class="c2">log</span>(result.body.statusUrl);
+<span class="c4">→ /v1/incidents/inc_8Kd2mQ…</span></div>
+
+          <p class="panel-note">
+            The authorization is single-use and expires in 10 minutes by default. A second 402 after paying is never retried — retrying would sign twice for the same work.
+          </p>
+        </div>
       </div>
     </div>
   </section>
@@ -412,7 +542,11 @@
       rows.innerHTML = settled
         .map(
           (r) => `<tr>
-            <td>${escape(r.summary)}</td>
+            <td>${escape(r.summary)}${
+              r.prUrl
+                ? ` <a href="${escape(r.prUrl)}" class="tx-link" target="_blank" rel="noopener">PR ↗</a>`
+                : ''
+            }</td>
             <td class="mono">${escape(short(r.payer, 4, 4))}</td>
             <td><a href="https://celoscan.io/tx/${encodeURIComponent(r.txHash)}" class="tx-link" target="_blank" rel="noopener">${escape(short(r.txHash))} ↗</a></td>
             <td class="amt">$${escape(Number(r.amount).toFixed(2))}</td>
@@ -422,7 +556,23 @@
     }
 
     const s = data.stats || {};
-    statsLine.textContent = `${s.uniqueSigners ?? 0} independent signers · $${s.totalValueProcessed ?? '0.00'} settled · ${s.resolved ?? 0} incidents resolved`;
+    const confirmed = settled.filter((r) => r.verificationDepth === 'repro-confirmed').length;
+
+    setStat('stat-signers', s.uniqueSigners ?? 0);
+    setStat('stat-value', `$${s.totalValueProcessed ?? '0.00'}`);
+    setStat('stat-resolved', s.resolved ?? 0);
+    setStat('stat-confirmed', confirmed);
+
+    // Said plainly rather than implied: "resolved" and "the original failure
+    // was proven gone" are different claims, and only the second is strong.
+    statsLine.textContent =
+      'Repro-confirmed means the reported failure was reproduced before the patch and no longer reproduces after it. ' +
+      'Incidents verified by test suite alone are counted as resolved but not confirmed.';
+  }
+
+  function setStat(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = String(value);
   }
 
   fetch(`${API_BASE}/v1/dashboard`)
@@ -432,7 +582,36 @@
       rows.innerHTML =
         '<tr><td colspan="4" class="mono" style="color:var(--ink-faint);">Ledger unavailable — the API isn\'t reachable from here.</td></tr>';
       statsLine.textContent = '';
+      for (const id of ['stat-signers', 'stat-value', 'stat-resolved', 'stat-confirmed']) setStat(id, '—');
     });
+})();
+
+/*
+ * Code panel tabs. Progressive enhancement: with JS off both panels are in
+ * the DOM and the second is only `hidden`, so the content is still reachable.
+ */
+(function () {
+  const tabs = [...document.querySelectorAll('.code-tab')];
+  if (tabs.length === 0) return;
+
+  function select(tab) {
+    for (const other of tabs) {
+      const isTarget = other === tab;
+      other.setAttribute('aria-selected', String(isTarget));
+      document.getElementById(other.getAttribute('aria-controls')).hidden = !isTarget;
+    }
+  }
+
+  for (const tab of tabs) {
+    tab.addEventListener('click', () => select(tab));
+    // Arrow-key movement is expected of a tablist.
+    tab.addEventListener('keydown', (event) => {
+      if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
+      const next = tabs[(tabs.indexOf(tab) + (event.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
+      select(next);
+      next.focus();
+    });
+  }
 })();
 </script>
 

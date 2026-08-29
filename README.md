@@ -22,14 +22,18 @@ encode/
     ├── scripts/
     │   ├── verifyHarness.js       ← offline: verification logic vs a real failing test
     │   ├── toolLoopHarness.js     ← offline: Coding Agent tool loop vs a scripted model
+    │   ├── payClientHarness.js    ← live /verify, signs with an empty wallet
     │   ├── facilitatorHarness.js  ← live x402 API, settles nothing
     │   ├── probeToolUse.js        ← cheap check: does this endpoint do tool use at all?
+    │   ├── registerAgentIdentity.js ← mints the ERC-8004 identity (real mainnet tx)
+    │   ├── payDemo.js             ← what a payer runs: quote, then optionally pay
     │   ├── dryRun.js              ← full pipeline, LLM calls mocked
     │   └── liveRun.js             ← full pipeline, real LLM calls
     └── src/
         ├── index.js
         ├── agents/         (incidentAgent.js, codingAgent.js, codingAgentQwen.js, bashPolicy.js)
         ├── celo/           (facilitator.js, attribution.js, paymentConfig.js)
+        ├── client/x402Client.js   ← the payer's side: signs EIP-3009 authorizations
         ├── config/env.js
         ├── dashboard/routes.js
         ├── llm/provider.js
@@ -51,11 +55,12 @@ encode/
 
 **Registered.** ERC-8004 agent identity minted on Celo mainnet — [agent 9794](https://www.8004scan.io/agents/celo/9794), owner `0xc61Bbc0CF5694EF410A578A9833f77C173790450`, resolving to [`agent-registration.json`](agent-registration.json). Registered at celobuilders.xyz with attribution tag `celo_4bec1b4754cb`. `GET /v1/status` reports `canTakeRealPayments: true` with no blockers: the settlement key is in place and verified against the live facilitator.
 
+**Payable.** `server/src/client/x402Client.js` is the payer's half — ~200 lines, one dependency, works against any x402 `exact` endpoint. Verified against the live facilitator with a throwaway empty wallet: it's rejected on funds, not on signature or format. `npm run pay` shows a quote without paying.
+
 **Not yet real:**
 
-- **No client-side signing snippet.** The server can quote, verify and settle, but a payer has no practical way to produce an `X-PAYMENT` header — so nobody has paid Encode yet. This is the only thing in the way.
-- The celobuilders submission is a **draft**. Publishing needs the X/Twitter post URL and happens before Sept 14, 09:00 UTC; drafts show on the leaderboard flagged as not eligible.
-- No real users and no real settlement. Every track that counts anything is gated on distinct independent signers.
+- The celobuilders submission is a **draft**. Publishing needs the X/Twitter post URL and `celoNetwork`, before Sept 14, 09:00 UTC; drafts show on the leaderboard flagged as not eligible.
+- **No real users and no real settlement.** Every track that counts anything is gated on distinct independent signers, and Encode has none. The unexercised step is a signature from a wallet that actually holds USDC.
 - Storage is in-memory. Settlement records don't survive a restart.
 
 ## Four things that were wrong and are worth knowing

@@ -60,3 +60,12 @@ Established from celobuilders.xyz's own API, and it inverts the obvious assumpti
 - Encode is agent **9794** on Celo mainnet, registry `0x8004a169…a432`, owner `0xc61Bbc0C…0450`. Mint script: `npm run register:identity` — simulates by default, refuses to double-register.
 - Declare any other wallet the project controls in `otherWallets` at submission. Undeclared project-looking wallets are treated as farming signals at audit.
 - Testnet activity counts for nothing, in every track.
+
+## Signing side (`src/client/x402Client.js`)
+
+- **Never guess an EIP-712 domain.** `signPaymentHeader` throws on an asset it has no known domain for, because signing against a guessed domain produces a signature that verifies against nothing — a silent failure that looks like a facilitator problem.
+- USDC's domain version is `2`; **USDT's is `1`**, and USDT exposes no `version()` getter, so it can't be discovered at runtime. Every domain in `ASSETS` was confirmed by computing `hashDomain()` and comparing against the token's on-chain `DOMAIN_SEPARATOR()`. Re-verify that way if you touch them, don't read a docs page.
+- Asset addresses must stay EIP-55 checksummed. ethers rejects mis-cased addresses with "bad address checksum", so a lowercase copy-paste breaks every client that validates.
+- Keep the client dependency-light and framework-free. A payer has to read it before trusting it with a signature; that's the point, not an aesthetic preference.
+- `maxAmountUsd` and the no-retry-after-402 rule are both money-safety guards. Don't remove them for convenience — the first stops a bad quote from being signed, the second stops paying twice for one job.
+- `npm run test:client` proves signing correctness without funds: it signs with a random empty wallet against the real `/verify` and asserts the rejection is `insufficient_funds`. If it becomes `invalid_signature` or `invalid_format`, the client is signing wrong.

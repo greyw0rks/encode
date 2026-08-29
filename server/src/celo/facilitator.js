@@ -29,24 +29,51 @@ const TESTNET_API = 'https://api.x402.sepolia.celo.org';
 /**
  * EIP-3009 `transferWithAuthorization` assets, both 6 decimals. Amounts on
  * the wire are base units, not dollars — 1000000 is $1.00.
+ *
+ * Addresses are EIP-55 checksummed — ethers rejects a mis-cased address with
+ * "bad address checksum", so a lowercase copy-paste from a docs page breaks
+ * any client that validates.
+ *
+ * `domain` is the EIP-712 domain a payer must sign against. Every value here
+ * was confirmed by computing hashDomain() and comparing it to the token's
+ * own DOMAIN_SEPARATOR() on-chain — not read off a docs page. USDT is the
+ * reason this is spelled out: it has no `version()` getter, so the version
+ * can't be discovered at runtime and a client that assumes "2" (USDC's
+ * value) produces a signature the token rejects.
  */
 export const ASSETS = {
   mainnet: {
-    USDC: '0xcEBA9300f2b948710d2653dD7B07f33A8B32118C',
-    USDT: '0x48065fbbe25f71c9282ddf5e1cd6d6a887483d5e',
+    USDC: {
+      address: '0xcebA9300f2b948710d2653dD7B07f33A8B32118C',
+      domain: { name: 'USDC', version: '2' },
+      decimals: 6,
+    },
+    USDT: {
+      address: '0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e',
+      domain: { name: 'Tether USD', version: '1' },
+      decimals: 6,
+    },
   },
   testnet: {
-    USDC: '0x01C5C0122039549AD1493B8220cABEdD739BC44E',
+    USDC: {
+      address: '0x01C5C0122039549AD1493B8220cABEdD739BC44E',
+      domain: { name: 'USDC', version: '2' },
+      decimals: 6,
+    },
   },
 };
 
 const NETWORK_IDS = {
-  mainnet: { v1: 'celo', caip2: 'eip155:42220' },
-  testnet: { v1: 'celo-sepolia', caip2: 'eip155:11142220' },
+  mainnet: { v1: 'celo', caip2: 'eip155:42220', chainId: 42220 },
+  testnet: { v1: 'celo-sepolia', caip2: 'eip155:11142220', chainId: 11142220 },
 };
 
 export function networkEnv() {
   return process.env.CELO_NETWORK_ENV === 'testnet' ? 'testnet' : 'mainnet';
+}
+
+export function chainId() {
+  return NETWORK_IDS[networkEnv()].chainId;
 }
 
 export function facilitatorUrl() {
@@ -54,13 +81,27 @@ export function facilitatorUrl() {
   return networkEnv() === 'testnet' ? TESTNET_API : MAINNET_API;
 }
 
-/** Asset contract address for a ticker, on the configured network. */
-export function assetAddress(ticker = 'USDC') {
-  const address = ASSETS[networkEnv()]?.[ticker.toUpperCase()];
-  if (!address) {
+function assetConfig(ticker = 'USDC') {
+  const config = ASSETS[networkEnv()]?.[ticker.toUpperCase()];
+  if (!config) {
     throw new Error(`unsupported_asset: ${ticker} on ${networkEnv()}`);
   }
-  return address;
+  return config;
+}
+
+/** Asset contract address for a ticker, on the configured network. */
+export function assetAddress(ticker = 'USDC') {
+  return assetConfig(ticker).address;
+}
+
+/**
+ * The full EIP-712 domain a payer signs `TransferWithAuthorization` against.
+ * Published in the 402 quote so a client doesn't have to guess it — getting
+ * this wrong yields a signature that verifies against nothing.
+ */
+export function assetDomain(ticker = 'USDC') {
+  const { address, domain } = assetConfig(ticker);
+  return { ...domain, chainId: chainId(), verifyingContract: address };
 }
 
 /** USD string ("8.00") → base units string ("8000000"). Both assets are 6dp. */

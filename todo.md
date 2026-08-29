@@ -4,15 +4,16 @@ Keep this updated as work happens — check items off, add new ones as they're d
 
 ## Blocking — needed before this is a real submission
 
-- [ ] **Ship a client-side snippet that signs an EIP-3009 authorization.** This is now the only thing standing between Encode and a real payment: the server can quote, verify, and settle, but a payer has no practical way to produce an `X-PAYMENT` header. Nothing else on this list matters until this exists.
 - [ ] Find real users. Primary track is **Real World Adoption**, measured on verified users (pre-28-Aug Celo activity), returning users (2+ distinct days), and distinct signers/authorisers — not volume. EIP-3009 authorisers and sponsored-relay signers both count.
-- [ ] Test one real x402 payment end-to-end from an independent wallet
+- [ ] Test one real x402 payment end-to-end from an independent funded wallet. Everything up to the funding check is now proven against the live facilitator; the only unexercised step is a signature over a wallet that actually holds USDC.
 - [ ] Publish the X/Twitter post and capture its URL — `socialLink` is a **required submission-stage field** and must be the real post, not a placeholder
 - [ ] Fill remaining submission-stage fields: `celoNetwork` (`celo-mainnet`), and declare `otherWallets` / `ownContracts`. Declaring is in your interest — undeclared project-looking wallets are treated as farming signals at audit. Note `0xc61Bbc0C…0450` is the shared Arcadia deployer, so Arcadia's contracts are worth listing.
 - [ ] Publish the submission (`POST /submissions/me/publish`) before **Sept 14, 09:00 UTC**. It is currently a **draft**, and drafts appear on the leaderboard flagged as not eligible.
 
 ## Done
 
+- [x] **Client-side EIP-3009 signing shipped** (`server/src/client/x402Client.js`) — the payer's half of the flow, ~200 lines with `ethers` as its only dependency, usable against any x402 `exact` endpoint. `npm run pay` shows a quote without paying; `--pay` signs and submits. Verified against the **live** facilitator with a throwaway empty wallet: rejection is `insufficient_funds`, not `invalid_signature` or `invalid_format`, which proves the signature and EIP-712 domain are right. Guards: `--max-usd` refuses to sign above a cap, and a second 402 after paying is never retried.
+- [x] EIP-712 domains for both Celo stablecoins verified by computing `hashDomain()` against each token's on-chain `DOMAIN_SEPARATOR()`. **USDC is version `2`, USDT is version `1`** and USDT has no `version()` getter — a client that guesses produces a signature that verifies against nothing. The 402 quote now publishes the domain so a payer doesn't have to guess. Also fixed both mainnet asset addresses, which were mis-checksummed and rejected by ethers.
 - [x] **Registered at celobuilders.xyz** (2026-08-29). Attribution tag **`celo_4bec1b4754cb`**, participant `bd57f400…`, submission `3f022c8c…` (status: draft). Primary track `real-world-adoption`. The connection credential is a `sk-celo-hackathon_…` bearer token, held outside the repo.
 - [x] **`X402_API_KEY` in place and verified against the live facilitator.** Confirmed by contrast: the real key reaches `400 insufficient_funds` on a deliberately unfundable payload, a fake key gets `401 Invalid API key`. So the key authenticates and no credits were spent proving it.
 - [x] **`GET /v1/status` reports `canTakeRealPayments: true` with zero blockers.** Agent 9794, tag on file, wallet on file, settlement key present.
@@ -27,7 +28,7 @@ Keep this updated as work happens — check items off, add new ones as they're d
 - [x] Implemented `originalFailureCheck` — replaced with `reproCommand` + baseline comparison in `verify.js`. The Incident Agent returns a repro command; verification runs it on the patch **and** on the pre-patch commit in a throwaway git worktree. A repro that passes on both proves nothing and is reported as unconfirmed rather than resolved.
 - [x] Provider abstraction (`src/llm/provider.js`) — Anthropic or Qwen, inferred from `ANTHROPIC_BASE_URL`. Coding Agent uses the Claude Agent SDK on Anthropic and Encode's own tool loop on Qwen (the SDK's tool orchestration doesn't route through a custom base URL).
 - [x] Wrote `ALLOWED_BASH_PREFIXES` (`src/agents/bashPolicy.js`) — referenced by AGENTS.md but never actually existed. Validates every segment of a chained command, rejects command substitution, denylists push/deploy.
-- [x] Four harnesses, all passing: `test:verify`, `test:loop`, `test:facilitator`, and `probeToolUse.js`.
+- [x] Five harnesses, all passing: `test:verify`, `test:loop`, `test:client`, `test:facilitator`, `test:probe`.
 - [x] `GET /v1/status` — reports the LLM path, facilitator health, and the specific blockers preventing real payments.
 - [x] Dashboard stats now exclude test/dry-run payers from `uniqueSigners` and `totalValueProcessed`, and count attributable vs unattributable separately.
 
@@ -62,6 +63,10 @@ Keep this updated as work happens — check items off, add new ones as they're d
 - [x] Docs snippet updated to the real 402 shape (`accepts[]`, base-unit amounts, `X-PAYMENT`)
 - [x] Removed the false "ERC-8004 registered" footer badge — restore it once registration actually happens
 - [x] Corrected copy that claimed pay-on-verification and continuous monitoring; both were wrong (payment is up front, monitoring isn't built)
+- [x] **Docs section now answers "how do I pay?"** — tabbed panels for the 402 exchange and the actual signing snippet, since those are two different questions. The hero CTA points there instead of at pricing: a visitor who can't work out how to pay doesn't need a price.
+- [x] Status strip under the nav linking the on-chain agent identity, the live facilitator health endpoint, and the source repo — verifiable claims rather than assertions.
+- [x] Stat row above the ledger surfacing `uniqueSigners` and a **repro-confirmed** count, with a plain-language note that "resolved" and "the original failure was proven gone" are different claims.
+- [x] Accessibility and responsive fixes: visible focus rings (there were none), a skip link, `prefers-reduced-motion`, decorative SVG marked `aria-hidden`, absolutely-positioned crosshairs hidden below 900px where they overlapped content, the ledger table scrolls instead of overflowing, and CTAs stack on narrow screens.
 - [ ] Reskin to the new reference design (cream/paper background, serif headline, teal highlight, isometric illustration) — in progress
 - [ ] "Standing watch" tier is marked "not yet live" — either build endpoint monitoring or drop the tier before submission
 

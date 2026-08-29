@@ -68,7 +68,10 @@ async function main() {
   check('$0.01 → 10000', toBaseUnits('0.01') === '10000', toBaseUnits('0.01'));
   check('integer "3" → 3000000', toBaseUnits('3') === '3000000', toBaseUnits('3'));
   check('over-precise 1.2345678 truncates to 6dp', toBaseUnits('1.2345678') === '1234567', toBaseUnits('1.2345678'));
-  check('USDC address resolves', assetAddress('USDC') === ASSETS.mainnet.USDC || assetAddress('USDC') === ASSETS.testnet.USDC);
+  check(
+    'USDC address resolves',
+    assetAddress('USDC') === ASSETS.mainnet.USDC.address || assetAddress('USDC') === ASSETS.testnet.USDC.address
+  );
   check(
     'unknown asset throws rather than returning undefined',
     (() => {

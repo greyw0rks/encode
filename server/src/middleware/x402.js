@@ -19,7 +19,14 @@
  * accepted as an alias since Celo's own docs use that name.
  */
 
-import { verifyPayment, settlePayment, buildPaymentRequirements, toBaseUnits, assetAddress } from '../celo/facilitator.js';
+import {
+  verifyPayment,
+  settlePayment,
+  buildPaymentRequirements,
+  toBaseUnits,
+  assetAddress,
+  assetDomain,
+} from '../celo/facilitator.js';
 import { paymentConfig, warnIfUnattributed } from '../celo/paymentConfig.js';
 
 /**
@@ -77,6 +84,24 @@ export function requirePayment(priceFn) {
           extra: { attributionTag: config.attributionTag },
           // Human-facing mirror — amounts above are base units (6dp).
           quote: { usd: amount, asset, assetAddress: assetAddress(asset), baseUnits: toBaseUnits(amount) },
+          // The EIP-712 domain the payer must sign against. Published
+          // because it can't reliably be discovered on-chain: USDT exposes
+          // no version() getter, and a client that guesses produces a
+          // signature that verifies against nothing.
+          eip712: {
+            primaryType: 'TransferWithAuthorization',
+            domain: assetDomain(asset),
+            types: {
+              TransferWithAuthorization: [
+                { name: 'from', type: 'address' },
+                { name: 'to', type: 'address' },
+                { name: 'value', type: 'uint256' },
+                { name: 'validAfter', type: 'uint256' },
+                { name: 'validBefore', type: 'uint256' },
+                { name: 'nonce', type: 'bytes32' },
+              ],
+            },
+          },
         });
     }
 

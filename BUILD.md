@@ -126,11 +126,40 @@ Defaults to `:8787`.
 | `POST /v1/incidents` | x402-gated; unpaid requests get a 402 quote |
 | `GET /v1/incidents/:id` | incident status |
 
-An unpaid `POST /v1/incidents` returns the quote as `accepts[]`, with **base-unit** amounts — `$8.00` is `"8000000"` (USDC is 6 decimals).
+An unpaid `POST /v1/incidents` returns the quote as `accepts[]`, with **base-unit** amounts — `$8.00` is `"8000000"` (USDC is 6 decimals) — plus an `eip712` block giving the exact domain to sign against.
 
-## 6. Landing page
+## 6. Pay Encode (the client side)
 
-`landing-page.html` is a static single file — no build step. Note its docs section still shows the old flat `price` shape for the 402 response; that changed.
+`server/src/client/x402Client.js` is the payer's half of the flow — ~200 lines, one dependency (`ethers`), no Encode server code. A prospective payer can copy it into their own project.
+
+```bash
+# See the price without paying — safe to run against production
+npm run pay -- --url https://encode.example/v1/incidents --tier fix
+
+# Sign and submit. THIS MOVES REAL MONEY.
+PAYER_PRIVATE_KEY=0x... npm run pay -- \
+  --url https://encode.example/v1/incidents \
+  --repo you/your-app --summary "..." --tier triage --max-usd 2 --pay
+```
+
+What a payer signs is an EIP-3009 `TransferWithAuthorization`: permission for one pull, of one amount, before an expiry. Signing costs no gas and moves nothing — the facilitator submits it on-chain and pays that gas.
+
+Two guards, because both are ways to lose money by accident:
+
+- `--max-usd` caps what will be signed. Without it, a compromised or buggy server could quote anything and the client would sign it.
+- A second 402 after paying is **not** retried. Retrying would sign a second authorization for the same work.
+
+```bash
+npm run test:client
+```
+
+Signs with a freshly generated throwaway wallet and sends it to the **real** `/verify`. The expected result is `insufficient_funds` — which proves the facilitator recovered the signer and matched the EIP-712 domain, reaching the balance check. `invalid_signature` or `invalid_format` would mean the client signs wrong. Nothing is funded, so nothing can settle.
+
+It also asserts the detail most likely to be got wrong: **USDC's EIP-712 domain version is `2`, USDT's is `1`**, and USDT exposes no `version()` getter to discover it from. Signing USDT under USDC's domain yields a signature that verifies against nothing. Every domain in `ASSETS` was confirmed by computing `hashDomain()` and comparing it to the token's own on-chain `DOMAIN_SEPARATOR()`.
+
+## 7. Landing page
+
+`landing-page.html` is a static single file — no build step. The ledger reads `GET /v1/dashboard` same-origin; override with `?api=https://your-api` when serving it separately.
 
 ## Deploy notes (not production-ready — flag before assuming otherwise)
 

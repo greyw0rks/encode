@@ -10,9 +10,11 @@
     "test": "node scripts/verifyHarness.js && node scripts/toolLoopHarness.js",
     "test:verify": "node scripts/verifyHarness.js",
     "test:loop": "node scripts/toolLoopHarness.js",
+    "test:client": "node scripts/payClientHarness.js",
     "test:facilitator": "node scripts/facilitatorHarness.js",
     "test:probe": "node scripts/probeToolUse.js",
     "register:identity": "node scripts/registerAgentIdentity.js",
+    "pay": "node scripts/payDemo.js",
     "dry": "node scripts/dryRun.js"
   },
   "dependencies": {
