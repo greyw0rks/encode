@@ -1,0 +1,161 @@
+import { Router } from 'express';
+import { requirePayment } from '../middleware/x402.js';
+import { identifyAgent } from '../middleware/auth.js';
+import { createIncident, getIncident, updateIncident, listIncidents } from '../store/incidentStore.js';
+import { diagnose } from '../agents/incidentAgent.js';
+import { draftFix } from '../agents/codingAgent.js';
+import { verifyFix } from '../verification/verify.js';
+import { openPullRequest } from '../verification/openPR.js';
+import { attributionRecord } from '../celo/attribution.js';
+import { cloneRepo, getRepoTree, getHeadCommit, cleanupRepo, repoGit } from '../repo/clone.js';
+
+const router = Router();
+
+const priceFor = (req) => {
+  const tier = req.body?.tier === 'fix' ? 'fix' : 'triage';
+  const amount = tier === 'fix' ? process.env.PRICE_FIX : process.env.PRICE_TRIAGE;
+  return { amount, asset: 'USDC', tier };
+};
+
+/**
+ * POST /v1/incidents
+ * Gated by x402. Unpaid request gets a 402 quote; paid request creates the
+ * incident and kicks off diagnosis (and, for the "fix" tier, the full
+ * repair loop) synchronously enough to return a job id immediately.
+ */
+router.post('/v1/incidents', identifyAgent, requirePayment(priceFor), async (req, res) => {
+  const { summary, repo, logsExcerpt, repoTree, tier = 'triage' } = req.body;
+
+  if (!summary || !repo) {
+    return res.status(400).json({ error: 'missing_fields', required: ['summary', 'repo'] });
+  }
+
+  const incident = createIncident({
+    summary,
+    repo,
+    logsRef: logsExcerpt?.slice(0, 200),
+    tier,
+    payer: req.payer,
+    settlement: req.settlement,
+    // Recorded, not assumed: the tag is applied client-side, so Encode
+    // stores what it knows rather than claiming leaderboard credit.
+    attribution: attributionRecord(req.settlement?.txHash),
+  });
+
+  res.status(202).json({ id: incident.id, status: incident.status, statusUrl: `/v1/incidents/${incident.id}` });
+
+  // Run diagnosis (and fix, if paid for) after responding — the client
+  // polls GET /v1/incidents/:id or waits on the resolve webhook.
+  runIncident(incident.id).catch((err) => {
+    updateIncident(incident.id, { status: 'failed', error: err.message });
+  });
+});
+
+async function runIncident(id) {
+  const incident = getIncident(id);
+  updateIncident(id, { status: 'diagnosing' });
+
+  let repoLocalPath;
+  try {
+    repoLocalPath = await cloneRepo({ incidentId: id, repo: incident.repo });
+  } catch (err) {
+    updateIncident(id, { status: 'failed', error: `clone_failed: ${err.message}` });
+    return;
+  }
+
+  const repoTree = await getRepoTree(repoLocalPath);
+  const baseCommit = await getHeadCommit(repoLocalPath).catch(() => null);
+  updateIncident(id, { repoLocalPath, repoTreeCache: repoTree, baseCommit });
+
+  const diagnosis = await diagnose({
+    summary: incident.summary,
+    logsExcerpt: incident.logsRef ?? '',
+    repoTree,
+  });
+  updateIncident(id, { diagnosis });
+
+  if (!diagnosis.isActionable) {
+    updateIncident(id, { status: 'resolved', repairPlan: null, verification: { note: 'not actionable' } });
+    await cleanupRepo(repoLocalPath);
+    return;
+  }
+
+  if (incident.tier === 'triage') {
+    updateIncident(id, { status: 'resolved' }); // diagnosis IS the deliverable at this tier
+    await cleanupRepo(repoLocalPath);
+    return;
+  }
+
+  updateIncident(id, { status: 'fix_drafted', repairPlan: diagnosis.repairPlan });
+
+  const fix = await draftFix({
+    incidentId: id,
+    repoPath: repoLocalPath,
+    repairPlan: diagnosis.repairPlan,
+    affectedFiles: diagnosis.affectedFiles,
+  });
+  updateIncident(id, { patch: fix });
+
+  const verification = await verifyFix({
+    repoPath: repoLocalPath,
+    branch: fix.branch,
+    reproCommand: diagnosis.reproCommand,
+    baseCommit,
+  });
+  updateIncident(id, { verification });
+
+  if (!verification.resolved) {
+    updateIncident(id, { status: 'failed', error: `verification_failed: ${verification.notes.join('; ')}` });
+    await cleanupRepo(repoLocalPath);
+    return;
+  }
+
+  // PR must be opened from a branch GitHub can see — push before opening it.
+  try {
+    await repoGit(repoLocalPath).push('origin', fix.branch, ['--set-upstream']);
+  } catch (err) {
+    updateIncident(id, { status: 'failed', error: `push_failed: ${err.message}` });
+    await cleanupRepo(repoLocalPath);
+    return;
+  }
+
+  const pr = await openPullRequest({
+    owner: incident.repo.owner,
+    repo: incident.repo.name,
+    branch: fix.branch,
+    title: `Encode fix: ${incident.summary}`,
+    body: fix.prDescription ?? 'Automated fix from Encode. See verification report for details.',
+  });
+
+  updateIncident(id, { status: 'resolved', pr });
+  await cleanupRepo(repoLocalPath);
+}
+
+router.get('/v1/incidents/:id', (req, res) => {
+  const incident = getIncident(req.params.id);
+  if (!incident) return res.status(404).json({ error: 'not_found' });
+  res.json(incident);
+});
+
+router.get('/v1/incidents', (req, res) => {
+  res.json(listIncidents({ limit: Number(req.query.limit) || 50 }));
+});
+
+/**
+ * POST /v1/incidents/:id/resolve
+ * Manual override — a human confirming a PR was merged (or rejecting a
+ * proposed fix). Doesn't move money; settlement already happened at
+ * creation time under the pay-then-deliver model.
+ */
+router.post('/v1/incidents/:id/resolve', identifyAgent, (req, res) => {
+  const incident = getIncident(req.params.id);
+  if (!incident) return res.status(404).json({ error: 'not_found' });
+
+  const { outcome, note } = req.body; // 'merged' | 'rejected'
+  const updated = updateIncident(req.params.id, {
+    humanReview: { outcome, note, reviewedAt: new Date().toISOString() },
+  });
+  res.json(updated);
+});
+
+export default router;

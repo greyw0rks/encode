@@ -1,0 +1,13 @@
+node_modules/
+.env
+.env.local
+*.log
+.DS_Store
+
+# Stale pre-rename snapshot of the original handoff. Kept locally for
+# reference; not part of the source tree.
+encode-project.zip
+
+# Local scratch clones the incident pipeline leaves behind if a run is
+# interrupted before cleanupRepo().
+tmp/

@@ -1,0 +1,142 @@
+# BUILD.md — Setup & Run Guide
+
+## Prerequisites
+
+- Node.js 20+ (repo uses ESM `type: module` and top-level `fetch`)
+- An API key for either real Anthropic **or** Qwen's Anthropic-compatible endpoint
+- A GitHub personal access token with repo write access (only needed for `--live-pr` runs)
+- An `X402_API_KEY` from the Celo x402 dashboard (only needed to actually take payment — see step 4)
+- A Celo wallet, funded, with pre-existing on-chain activity (needed once you're testing real settlement)
+
+## 1. Install
+
+```bash
+cd server
+cp .env.example .env
+npm install
+```
+
+Fill in `.env`. The LLM provider is inferred from `ANTHROPIC_BASE_URL`:
+
+```
+# Real Anthropic — Coding Agent uses the Claude Agent SDK
+ANTHROPIC_API_KEY=sk-ant-...
+ANTHROPIC_BASE_URL=
+
+# ...or Qwen — Coding Agent uses Encode's own tool loop
+ANTHROPIC_API_KEY=<qwen key>
+ANTHROPIC_BASE_URL=<qwen Anthropic-compatible endpoint>
+LLM_MODEL_DIAGNOSIS=qwen3.7-plus
+LLM_MODEL_CODING=qwen3.7-max
+```
+
+Model defaults come from the provider (`claude-haiku-4-5` / `claude-sonnet-4-6`, or `qwen3.7-plus` / `qwen3.7-max`). On DashScope the plain `qwen-plus` / `qwen-max` aliases return `400 Model not exist.` — use the versioned IDs.
+
+`.env` **wins over ambient environment variables**, unlike stock `dotenv`. If your shell already exports `ANTHROPIC_BASE_URL` (Claude Code does), stock dotenv would silently keep it and you'd debug the wrong endpoint. `src/config/env.js` overrides and logs what it overrode.
+
+Leave the Celo/x402 vars blank until step 4.
+
+## 2. Confirm the logic works (no keys, no network egress beyond the facilitator)
+
+```bash
+npm test
+```
+
+Two harnesses, both offline:
+
+- **`test:verify`** — builds a real throwaway git repo with a genuinely failing test, then checks that `verify.js` reports resolved only when it should. Includes the case that matters: a repro command that passes both before *and* after the patch must be reported as unconfirmed, not as a fix.
+- **`test:loop`** — stands up a local server speaking the Anthropic `/v1/messages` shape, returns scripted tool calls, and exercises the real tool dispatch. Asserts that `git push` is refused, that path escapes are refused, and that a model which stops without calling `submit_fix` does not produce a reported fix.
+
+```bash
+npm run test:facilitator
+```
+
+Hits the **real** facilitator at `api.x402.celo.org`. Confirms `/health` and `/supported`, and sends a structurally-correct-but-worthless payload to `/verify` — the expected result is `insufficient_funds`, which proves Encode is building the right request shape. `invalid_format` would mean `facilitator.js` is wrong. It attempts no settlement and moves no money.
+
+```bash
+npm run dry
+```
+
+Clones a real public repo and runs the full state machine with the LLM calls mocked. If the clone step fails it's a network/git issue, not an LLM issue.
+
+## 3. Confirm the LLM calls actually work
+
+Cheapest check first — does the endpoint support Anthropic-shaped tool use at all?
+
+```bash
+node scripts/probeToolUse.js
+```
+
+Two turns: the model must emit a `tool_use` block, and must use the `tool_result` you feed back. If this fails, nothing downstream will work and the problem is the endpoint, not Encode.
+
+Then the full pipeline:
+
+```bash
+node scripts/liveRun.js --repo yourname/your-repo --summary "describe a real bug" --logs "..." --tier fix [--keep] [--live-pr]
+```
+
+Prints the resolved provider and strategy first, then streams each tool call as it happens. Without `--live-pr` it stops after verification. Watch for:
+
+- Does `diagnose()` return valid JSON, and does it identify a usable `reproCommand`?
+- Does the Coding Agent's loop terminate with `submit_fix`?
+- Does verification reach `repro-confirmed`, or only `tests-only`? `tests-only` with a note about the bash policy means the repro command was refused — check `bashPolicy.js`.
+
+`--keep` leaves the clone on disk so a failed run can be inspected. `--live-pr` pushes and opens a real PR — only against a repo you own.
+
+A known-good target: [`greyw0rks/encore-testbed`](https://github.com/greyw0rks/encore-testbed) contains a deliberate off-by-one with a passing test suite and a failing `npm run repro`, which is exactly the shape that exercises baseline verification.
+
+## 4. Get paid (both steps required)
+
+**a) Settlement API key.** Go to `https://x402.celo.org`, connect a wallet, create an API key (signs an off-chain message, no gas), and put it in `.env` as `X402_API_KEY`.
+
+This is not optional and it fails quietly: `POST /verify` is open, so everything looks healthy without a key — right up until the first `POST /settle` returns `401` and no payment can complete. New accounts get free credits; more are bought by depositing USDC at ~$0.001 per settlement.
+
+**b) Hackathon registration.**
+
+```bash
+npx skills add https://celobuilders.xyz
+```
+
+Then ask your agent: *"Help me register for the Agents at Work Hackathon."* You'll get an `ERC8004_AGENT_ID` and `ERC8021_ATTRIBUTION_TAG` — put both in `.env`, along with `ENCODE_WALLET_ADDRESS`.
+
+**Do both before processing a single real payment.** Unattributed settlements don't appear on the leaderboard at all, and unsettled payments aren't payments.
+
+Check where you stand:
+
+```bash
+npm start
+curl localhost:8787/v1/status
+```
+
+`canTakeRealPayments` is `true` only when nothing is blocking; `blockers` names anything that is.
+
+## 5. Run the API server
+
+```bash
+npm start        # or: npm run dev  (auto-restart on change)
+```
+
+Defaults to `:8787`.
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /health` | liveness |
+| `GET /v1/status` | LLM path, facilitator health, and what's blocking real payments |
+| `GET /v1/dashboard` | ledger + `uniqueSigners` (the Track 1 number) |
+| `POST /v1/incidents` | x402-gated; unpaid requests get a 402 quote |
+| `GET /v1/incidents/:id` | incident status |
+
+An unpaid `POST /v1/incidents` returns the quote as `accepts[]`, with **base-unit** amounts — `$8.00` is `"8000000"` (USDC is 6 decimals).
+
+## 6. Landing page
+
+`landing-page.html` is a static single file — no build step. Note its docs section still shows the old flat `price` shape for the 402 response; that changed.
+
+## Deploy notes (not production-ready — flag before assuming otherwise)
+
+- In-memory store (`src/store/incidentStore.js`): a restart loses all incident history, including real settlement records.
+- `POST /v1/incidents` settles payment, returns `202`, then runs the incident. A crash mid-incident means the payer paid and got nothing, with no retry or refund path.
+- **Deploy somewhere with no global git credential helper.** On a dev machine with `gh auth git-credential` configured, the incident clone can push on its own — Encode's "the model can't push" guarantee then rests only on the bash denylist, not on the absence of credentials.
+- No rate limiting. `/v1/status` makes two upstream facilitator calls per request and is unauthenticated.
+- `verify.js` runs `npm install` in the baseline worktree, and the bash whitelist permits `npm run <script>`. Both execute code the target repo controls. Fine for trusted repos; not for arbitrary ones.
+- `GITHUB_TOKEN` as used needs write access to whatever repos Encode patches — fine for your own, not viable for arbitrary client repos without a GitHub App / installation-token flow.
