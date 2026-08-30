@@ -355,7 +355,7 @@
         <p class="section-sub">Every incident runs the same four steps, in order — that's what makes the price predictable.</p>
       </div>
       <div class="steps">
-        <div class="step"><div class="step-num">01</div><h3>Quote</h3><p>Send the incident. Encode returns a 402 with a fixed price — $1.50 to triage, $8 for a fix and PR. Nothing runs until you sign.</p></div>
+        <div class="step"><div class="step-num">01</div><h3>Quote</h3><p>Send the incident. Encode returns a 402 with a fixed price — $0.20 to triage, $0.50 for a fix and PR. Nothing runs until you sign.</p></div>
         <div class="step"><div class="step-num">02</div><h3>Settle</h3><p>Your wallet pays over x402 on Celo. One on-chain transaction, straight to Encode — no escrow, no account, no invoice.</p></div>
         <div class="step"><div class="step-num">03</div><h3>Diagnose</h3><p>Encode reads the relevant logs and code, decides whether the incident is real, and works out the likely cause.</p></div>
         <div class="step"><div class="step-num">04</div><h3>Fix &amp; verify</h3><p>A patch is drafted and the tests run — plus the original failure is re-checked against the unpatched code, so "fixed" means something. Then a PR opens. Nothing merges without your review.</p></div>
@@ -373,13 +373,13 @@
       <div class="pricing-grid">
         <div class="price-card">
           <div class="price-tag">Triage</div>
-          <div class="price-amt">$1.50<small> / incident</small></div>
+          <div class="price-amt">$0.20<small> / incident</small></div>
           <p class="price-desc">Encode tells you what broke and why. You decide what to do about it.</p>
           <ul class="price-list"><li>Root-cause diagnosis</li><li>Severity rating</li><li>No patch, no PR</li></ul>
         </div>
         <div class="price-card featured">
           <div class="price-tag">Fix &amp; PR</div>
-          <div class="price-amt">$8<small> / incident</small></div>
+          <div class="price-amt">$0.50<small> / incident</small></div>
           <p class="price-desc">Diagnosis plus a working patch, opened as a pull request against your repo.</p>
           <ul class="price-list"><li>Everything in Triage</li><li>Patch with the tests run against it</li><li>Original failure re-checked, not assumed</li><li>PR opened — you review and merge</li></ul>
         </div>
@@ -447,11 +447,11 @@
   <span class="c2">"accepts"</span>: [{
     <span class="c2">"scheme"</span>: <span class="c3">"exact"</span>,
     <span class="c2">"network"</span>: <span class="c3">"celo"</span>,
-    <span class="c2">"maxAmountRequired"</span>: <span class="c3">"8000000"</span>,
+    <span class="c2">"maxAmountRequired"</span>: <span class="c3">"500000"</span>,
     <span class="c2">"asset"</span>: <span class="c3">"0xcebA…118C"</span>,
     <span class="c2">"payTo"</span>: <span class="c3">"0xc61B…0450"</span>
   }],
-  <span class="c2">"quote"</span>: { <span class="c2">"usd"</span>: <span class="c3">"8.00"</span>, <span class="c2">"asset"</span>: <span class="c3">"USDC"</span> },
+  <span class="c2">"quote"</span>: { <span class="c2">"usd"</span>: <span class="c3">"0.50"</span>, <span class="c2">"asset"</span>: <span class="c3">"USDC"</span> },
   <span class="c2">"eip712"</span>: {
     <span class="c2">"primaryType"</span>: <span class="c3">"TransferWithAuthorization"</span>,
     <span class="c2">"domain"</span>: { <span class="c2">"name"</span>: <span class="c3">"USDC"</span>, <span class="c2">"version"</span>: <span class="c3">"2"</span>,
@@ -485,7 +485,7 @@
 
   <span class="c1">// Refuses to sign above this. Without it, a</span>
   <span class="c1">// buggy server could quote any amount.</span>
-  maxAmountUsd: <span class="c3">10</span>,
+  maxAmountUsd: <span class="c3">1</span>,
 });
 
 console.<span class="c2">log</span>(result.body.statusUrl);

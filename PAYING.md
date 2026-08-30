@@ -11,8 +11,8 @@ Encode charges per incident, quoted before it starts:
 
 | Tier | Price | You get |
 |---|---|---|
-| `triage` | $1.50 | Root cause, severity, affected files. No patch. |
-| `fix` | $8.00 | Triage, plus a patch with your tests run against it, plus an opened PR. |
+| `triage` | $0.20 | Root cause, severity, affected files. No patch. |
+| `fix` | $0.50 | Triage, plus a patch with your tests run against it, plus an opened PR. |
 
 Payment settles **before** the work runs. Encode's terminal action is always
 "PR opened" — it never merges and never deploys. You review.
@@ -30,14 +30,14 @@ Two honest caveats before you spend anything:
 
 ## What you need
 
-1. **A Celo wallet with USDC.** Mainnet. `$1.50` for triage, `$8.00` for a
+1. **A Celo wallet with USDC.** Mainnet. `$0.20` for triage, `$0.50` for a
    fix, plus nothing for gas — the x402 facilitator pays the gas.
 2. **No CELO required.** You are signing an authorization, not sending a
    transaction. This surprises people; it's the point of EIP-3009.
 3. **A public GitHub repo** with a bug and a test suite.
 
 USDC on Celo mainnet is `0xcebA9300f2b948710d2653dD7B07f33A8B32118C` (6
-decimals — `$8.00` is `8000000` base units).
+decimals — `$0.50` is `500000` base units).
 
 ## Step 1 — see the price, pay nothing
 
@@ -50,8 +50,8 @@ Prints the quote and stops. Safe to run against production; it signs nothing.
 
 ```
 402 Payment Required
-  Price:      $8.00 USDC
-  Base units: 8000000
+  Price:      $0.50 USDC
+  Base units: 500000
   Asset:      0xcebA9300f2b948710d2653dD7B07f33A8B32118C
   Pay to:     0xc61Bbc0CF5694EF410A578A9833f77C173790450
   Network:    celo
@@ -89,7 +89,7 @@ PAYER_PRIVATE_KEY=0x... npm run pay -- \
   --summary "Nightly export job emits duplicate rows" \
   --logs "export.job: collected 27 records, 25 exist; dupes r10, r19" \
   --tier fix \
-  --max-usd 10 \
+  --max-usd 1 \
   --pay
 ```
 
@@ -128,7 +128,7 @@ Read these fields when it lands:
 
 If `diagnosis.isActionable` is false, Encode judged the report too thin to
 act on and stopped rather than guessing. That's the intended behaviour, but
-you were still charged: payment settles before diagnosis. Spend the $1.50 on
+you were still charged: payment settles before diagnosis. Spend the $0.20 on
 triage first if you're unsure the report is strong enough.
 
 ## What a real run looked like
@@ -175,7 +175,7 @@ const result = await payAndRequest({
     tier: 'fix',
   },
   signer: new Wallet(process.env.PRIVATE_KEY),
-  maxAmountUsd: 10,
+  maxAmountUsd: 1,
 });
 ```
 

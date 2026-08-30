@@ -47,8 +47,8 @@ Nothing past "PR opened" is automatic. A human merges.
 
 | Tier | Price | Deliverable |
 |---|---|---|
-| Triage | $1.50 | Root cause + severity, no patch |
-| Fix & PR | $8.00 | Triage + tested patch + opened PR |
+| Triage | $0.20 | Root cause + severity, no patch |
+| Fix & PR | $0.50 | Triage + tested patch + opened PR |
 
 Charged on **PR opened**, not merged — Encode doesn't control a human reviewer's timeline, so payment can't be gated on a step it doesn't own.
 

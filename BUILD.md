@@ -126,7 +126,7 @@ Defaults to `:8787`.
 | `POST /v1/incidents` | x402-gated; unpaid requests get a 402 quote |
 | `GET /v1/incidents/:id` | incident status |
 
-An unpaid `POST /v1/incidents` returns the quote as `accepts[]`, with **base-unit** amounts — `$8.00` is `"8000000"` (USDC is 6 decimals) — plus an `eip712` block giving the exact domain to sign against.
+An unpaid `POST /v1/incidents` returns the quote as `accepts[]`, with **base-unit** amounts — `$0.50` is `"500000"` (USDC is 6 decimals) — plus an `eip712` block giving the exact domain to sign against.
 
 ## 6. Pay Encode (the client side)
 

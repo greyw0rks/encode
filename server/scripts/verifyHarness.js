@@ -215,16 +215,16 @@ async function caseSelfFundedExclusion() {
     attribution: { attributable: true },
   });
 
-  createIncident(settled('0xAAAA000000000000000000000000000000000001', '8.00', false));
-  createIncident(settled(payout, '8.00', true));
+  createIncident(settled('0xAAAA000000000000000000000000000000000001', '0.50', false));
+  createIncident(settled(payout, '0.50', true));
   // Same payer, different casing — must not double-count.
-  createIncident(settled('0xaaaa000000000000000000000000000000000001', '1.50', false));
+  createIncident(settled('0xaaaa000000000000000000000000000000000001', '0.20', false));
   createIncident({ summary: 't', repo: {}, tier: 'fix', payer: '0xLIVERUN_TEST', settlement: { txHash: null, amount: '0.00' } });
 
   const stats = getStats();
   check('uniqueSigners counts only independent payers', stats.uniqueSigners === 1, String(stats.uniqueSigners));
   check('address casing does not double-count a signer', stats.uniqueSigners === 1);
-  check('totalValueProcessed excludes the self-funded payment', stats.totalValueProcessed === '9.50', stats.totalValueProcessed);
+  check('totalValueProcessed excludes the self-funded payment', stats.totalValueProcessed === '0.70', stats.totalValueProcessed);
   check('selfFundedPayments is reported separately', stats.selfFundedPayments === 1, String(stats.selfFundedPayments));
   check('test-marked payers are excluded', stats.testPayments === 1, String(stats.testPayments));
 }

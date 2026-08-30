@@ -7,8 +7,8 @@ import { llmClient, modelFor } from '../llm/provider.js';
  * decides: is this real, how severe, and what's the probable cause.
  * Deliberately kept separate from the Coding Agent — this step is a
  * judgment call over noisy signals, not code generation, and keeping it on
- * the cheaper model means triage-only requests stay priced at $1.50 without
- * subsidizing a full reasoning pass.
+ * the cheaper model is what lets the triage tier be priced well below the
+ * fix tier rather than subsidizing a full reasoning pass.
  *
  * Output is a structured repair plan, not prose — the Coding Agent consumes
  * this directly instead of re-parsing free text.

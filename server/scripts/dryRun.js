@@ -19,7 +19,7 @@ async function main() {
   const fakePayer = '0xDRYRUN00000000000000000000000000000001';
   const fakeSettlement = {
     txHash: '0xDRYRUNTX0000000000000000000000000000000000000000000000000000',
-    amount: '8.00',
+    amount: '0.50',
     asset: 'USDC',
     settledAt: new Date().toISOString(),
   };

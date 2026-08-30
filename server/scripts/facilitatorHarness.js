@@ -63,8 +63,14 @@ async function main() {
   console.log('No settlement is attempted with a real authorization. Nothing here moves value.\n');
 
   console.log('[1] Unit conversions and asset resolution (no network)');
-  check('$8.00 → 8000000 base units', toBaseUnits('8.00') === '8000000', toBaseUnits('8.00'));
-  check('$1.50 → 1500000', toBaseUnits('1.50') === '1500000', toBaseUnits('1.50'));
+  // The two live prices, plus the sub-dollar cases that are easy to get
+  // wrong: a trailing zero must not be dropped, and "0.5" must not become
+  // 5000000. Both would overcharge by 10x.
+  check('$0.20 → 200000 base units', toBaseUnits('0.20') === '200000', toBaseUnits('0.20'));
+  check('$0.50 → 500000', toBaseUnits('0.50') === '500000', toBaseUnits('0.50'));
+  check('unpadded "0.5" → 500000, not 5000000', toBaseUnits('0.5') === '500000', toBaseUnits('0.5'));
+  check('unpadded "0.2" → 200000', toBaseUnits('0.2') === '200000', toBaseUnits('0.2'));
+  check('$8.00 → 8000000', toBaseUnits('8.00') === '8000000', toBaseUnits('8.00'));
   check('$0.01 → 10000', toBaseUnits('0.01') === '10000', toBaseUnits('0.01'));
   check('integer "3" → 3000000', toBaseUnits('3') === '3000000', toBaseUnits('3'));
   check('over-precise 1.2345678 truncates to 6dp', toBaseUnits('1.2345678') === '1234567', toBaseUnits('1.2345678'));
@@ -85,7 +91,7 @@ async function main() {
   );
 
   console.log('\n[2] Payment header decoding');
-  const header = fakePaymentHeader({ payTo: '0x1111111111111111111111111111111111111111', amountUsd: '8.00' });
+  const header = fakePaymentHeader({ payTo: '0x1111111111111111111111111111111111111111', amountUsd: '0.50' });
   const decoded = decodePaymentHeader(header);
   check('base64 JSON decodes', decoded.ok === true);
   check('authorization.from survives the round trip', decoded.payload?.payload?.authorization?.from?.endsWith('dEaD'));
@@ -105,13 +111,13 @@ async function main() {
 
   console.log('\n[4] Live POST /verify — shape is correct, payment is not');
   const requirements = buildPaymentRequirements({
-    amountUsd: '8.00',
+    amountUsd: '0.50',
     asset: 'USDC',
     payTo: '0x1111111111111111111111111111111111111111',
     resource: 'https://encode.test/v1/incidents',
     description: 'harness probe — not a real request',
   });
-  check('requirements carry base-unit amount', requirements.maxAmountRequired === '8000000', requirements.maxAmountRequired);
+  check('requirements carry base-unit amount', requirements.maxAmountRequired === '500000', requirements.maxAmountRequired);
   check('requirements carry a contract address as asset', requirements.asset?.startsWith('0x'));
 
   const result = await verifyPayment({ header, paymentRequirements: requirements });

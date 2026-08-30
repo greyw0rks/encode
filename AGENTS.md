@@ -43,7 +43,7 @@ Also caught: the bash whitelist enumerated `npm run lint|build|typecheck` but no
 - The API host is **`api.x402.celo.org`** (mainnet) / `api.x402.sepolia.celo.org` (Sepolia). `x402.celo.org` is the **dashboard SPA** — it returns HTML for `/verify` and `/supported`. Pointing a resource server at it is the documented trap.
 - **`POST /verify` moves no money.** It's an off-chain signature + balance/simulation check. Settlement is a separate **`POST /settle`** that requires an `X-API-Key`. Verification succeeding is not payment.
 - `/verify` is open; `/settle` returns `401` without a key, `402` when credits are exhausted, `429` on the free-tier rate limit. This means an integration looks completely healthy until its first real settlement.
-- Amounts on the wire are **base units, not dollars**. USDC and USDT are both 6 decimals, so `$8.00` is `"8000000"`.
+- Amounts on the wire are **base units, not dollars**. USDC and USDT are both 6 decimals, so `$0.50` is `"500000"`. Sub-dollar prices make the trailing zero load-bearing: `"0.5"` and `"0.50"` must both give `500000`, never `5000000`. `facilitatorHarness` asserts both.
 - Assets settle via EIP-3009 `transferWithAuthorization`, payer → payee directly. The facilitator never takes custody; it pays gas.
 - Payload shape for scheme `exact`, confirmed field-by-field because `/verify` names each missing field: `{ x402Version, scheme, network, payload: { signature, authorization: { from, to, value, validAfter, validBefore, nonce } } }`.
 - If `/verify` returns `invalid_format`, Encode is building the wrong request — not the client's problem. `insufficient_funds` on a fake payload means the shape is right.

@@ -39,7 +39,7 @@ const TYPES = {
 
 const PAY_TO = '0x1111111111111111111111111111111111111111';
 
-function requirementFor(asset = 'USDC', amountUsd = '8.00') {
+function requirementFor(asset = 'USDC', amountUsd = '0.50') {
   return buildPaymentRequirements({
     amountUsd,
     asset,
@@ -68,7 +68,7 @@ async function main() {
   check('recovers to the signing wallet', recovered.toLowerCase() === payer.address.toLowerCase(), recovered);
   check('authorization.from is the payer', authorization.from.toLowerCase() === payer.address.toLowerCase());
   check('authorization.to is the quoted payTo', authorization.to.toLowerCase() === PAY_TO.toLowerCase());
-  check('value is base units, not dollars', authorization.value === '8000000', authorization.value);
+  check('value is base units, not dollars', authorization.value === '500000', authorization.value);
   check('nonce is 32 bytes', /^0x[0-9a-f]{64}$/i.test(authorization.nonce));
   check('validBefore is in the future', Number(authorization.validBefore) > Math.floor(Date.now() / 1000));
   check('validAfter is already past (clock-skew tolerant)', Number(authorization.validAfter) <= Math.floor(Date.now() / 1000));
@@ -85,7 +85,7 @@ async function main() {
   // USDT's domain version is "1" while USDC's is "2", and USDT has no
   // version() getter to discover it from. Signing USDT with USDC's domain
   // is the exact bug this asserts against.
-  const usdtRequirement = requirementFor('USDT', '8.00');
+  const usdtRequirement = requirementFor('USDT', '0.50');
   const usdt = await signPaymentHeader({ requirement: usdtRequirement, signer: payer });
   const usdtDomain = assetDomain('USDT');
   check('USDC domain version is 2', assetDomain('USDC').version === '2');

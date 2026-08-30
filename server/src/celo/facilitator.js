@@ -104,7 +104,7 @@ export function assetDomain(ticker = 'USDC') {
   return { ...domain, chainId: chainId(), verifyingContract: address };
 }
 
-/** USD string ("8.00") → base units string ("8000000"). Both assets are 6dp. */
+/** USD string ("0.50") → base units string ("500000"). Both assets are 6dp. */
 export function toBaseUnits(usd, decimals = 6) {
   const [whole, fraction = ''] = String(usd).split('.');
   const padded = fraction.padEnd(decimals, '0').slice(0, decimals);
