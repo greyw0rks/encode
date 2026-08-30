@@ -24,6 +24,10 @@
     "ethers": "^6.13.0",
     "express": "^4.22.2",
     "nanoid": "^5.1.16",
-    "simple-git": "^3.36.0"
+    "simple-git": "^3.36.0",
+    "zod": "^4.5.4"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }

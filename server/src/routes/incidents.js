@@ -1,13 +1,14 @@
 import { Router } from 'express';
 import { requirePayment } from '../middleware/x402.js';
 import { identifyAgent } from '../middleware/auth.js';
-import { createIncident, getIncident, updateIncident, listIncidents } from '../store/incidentStore.js';
+import { createIncident, getIncident, updateIncident } from '../store/incidentStore.js';
 import { diagnose } from '../agents/incidentAgent.js';
 import { draftFix } from '../agents/codingAgent.js';
 import { verifyFix } from '../verification/verify.js';
 import { openPullRequest } from '../verification/openPR.js';
 import { attributionRecord } from '../celo/attribution.js';
 import { cloneRepo, getRepoTree, getHeadCommit, cleanupRepo, repoGit } from '../repo/clone.js';
+import { publicIncident } from './publicView.js';
 
 const router = Router();
 
@@ -134,11 +135,21 @@ async function runIncident(id) {
 router.get('/v1/incidents/:id', (req, res) => {
   const incident = getIncident(req.params.id);
   if (!incident) return res.status(404).json({ error: 'not_found' });
-  res.json(incident);
+  res.json(publicIncident(incident));
 });
 
+/**
+ * GET /v1/incidents
+ * Deliberately NOT a public list. The dashboard's ledger is the public
+ * surface (settlement facts only); this would hand a stranger every
+ * payer's diagnosis and repair plan. Callers poll their own incident by id,
+ * which they got when they paid.
+ */
 router.get('/v1/incidents', (req, res) => {
-  res.json(listIncidents({ limit: Number(req.query.limit) || 50 }));
+  res.status(404).json({
+    error: 'not_found',
+    message: 'No public incident list. Poll GET /v1/incidents/:id, or see GET /v1/dashboard for the settlement ledger.',
+  });
 });
 
 /**
@@ -146,16 +157,25 @@ router.get('/v1/incidents', (req, res) => {
  * Manual override — a human confirming a PR was merged (or rejecting a
  * proposed fix). Doesn't move money; settlement already happened at
  * creation time under the pay-then-deliver model.
+ *
+ * Anyone who knows an incident id can annotate it. That's tolerable because
+ * the field is advisory and moves nothing, but it's the reason the response
+ * is a projection rather than the raw record.
  */
 router.post('/v1/incidents/:id/resolve', identifyAgent, (req, res) => {
   const incident = getIncident(req.params.id);
   if (!incident) return res.status(404).json({ error: 'not_found' });
 
-  const { outcome, note } = req.body; // 'merged' | 'rejected'
+  const outcome = req.body?.outcome === 'merged' || req.body?.outcome === 'rejected' ? req.body.outcome : null;
+  if (!outcome) {
+    return res.status(400).json({ error: 'invalid_outcome', allowed: ['merged', 'rejected'] });
+  }
+
+  const note = typeof req.body?.note === 'string' ? req.body.note.slice(0, 2000) : null;
   const updated = updateIncident(req.params.id, {
     humanReview: { outcome, note, reviewedAt: new Date().toISOString() },
   });
-  res.json(updated);
+  res.json(publicIncident(updated));
 });
 
 export default router;

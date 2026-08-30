@@ -4,6 +4,7 @@ import { mkdtemp, rm, access } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { checkBashCommand } from '../agents/bashPolicy.js';
+import { childEnv } from '../agents/childEnv.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -30,6 +31,9 @@ async function runStep(command, cwd) {
   try {
     const { stdout, stderr } = await execFileAsync('bash', ['-lc', command], {
       cwd,
+      // Scrubbed: this runs the target repo's scripts, which must never see
+      // Encode's API keys. See agents/childEnv.js.
+      env: childEnv(),
       timeout: STEP_TIMEOUT_MS,
       maxBuffer: 10 * 1024 * 1024,
     });

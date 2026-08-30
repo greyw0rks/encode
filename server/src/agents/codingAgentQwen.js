@@ -19,6 +19,7 @@ import { readFile, writeFile, mkdir } from 'fs/promises';
 import { resolve, dirname, relative, isAbsolute } from 'path';
 import { llmClient, modelFor } from '../llm/provider.js';
 import { ALLOWED_BASH_PREFIXES, checkBashCommand } from './bashPolicy.js';
+import { childEnv } from './childEnv.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -145,6 +146,9 @@ async function runTool({ name, input, repoPath }) {
     try {
       const { stdout, stderr } = await execFileAsync('bash', ['-lc', command], {
         cwd: repoPath,
+        // Scrubbed: the model chooses this command and the repo owns the
+        // scripts it invokes. Neither should see Encode's keys.
+        env: childEnv(),
         timeout: BASH_TIMEOUT_MS,
         maxBuffer: 10 * 1024 * 1024,
       });

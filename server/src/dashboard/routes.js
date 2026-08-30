@@ -3,6 +3,7 @@ import { listIncidents, getStats } from '../store/incidentStore.js';
 import { attributionStatus } from '../celo/attribution.js';
 import { providerSummary } from '../llm/provider.js';
 import { paymentConfig } from '../celo/paymentConfig.js';
+import { ledgerRow } from '../routes/publicView.js';
 
 const router = Router();
 
@@ -12,23 +13,13 @@ const router = Router();
  * the same weight as totalValueProcessed on purpose — every track is judged
  * on distinct signers, not raw volume, so this number needs to be
  * impossible to miss, not buried under a bigger dollar figure.
+ *
+ * Rows are settlement facts only. A stranger browsing this has no claim on
+ * another payer's diagnosis or repair plan — see routes/publicView.js.
  */
 router.get('/v1/dashboard', (req, res) => {
   const stats = getStats();
-  const recent = listIncidents({ limit: 20 }).map((i) => ({
-    id: i.id,
-    summary: i.summary,
-    status: i.status,
-    tier: i.tier,
-    payer: i.payer,
-    amount: i.settlement?.amount,
-    txHash: i.settlement?.txHash,
-    attributed: Boolean(i.attribution?.attributable),
-    selfFunded: Boolean(i.settlement?.selfFunded),
-    verificationDepth: i.verification?.verificationDepth ?? null,
-    prUrl: i.pr?.url ?? null,
-    createdAt: i.createdAt,
-  }));
+  const recent = listIncidents({ limit: 20 }).map(ledgerRow);
 
   res.json({ stats, recent });
 });
