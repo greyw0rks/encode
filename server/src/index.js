@@ -5,6 +5,13 @@ import dashboardRouter from './dashboard/routes.js';
 import { providerSummary } from './llm/provider.js';
 import { paymentConfig } from './celo/paymentConfig.js';
 import { rateLimit } from './middleware/rateLimit.js';
+import { reconcileInterrupted } from './store/incidentStore.js';
+
+// An incident runs *after* its response is sent, so a restart mid-run leaves a
+// paid job with no process advancing it. Anything still non-terminal in the
+// store belongs to a process that no longer exists, so resolve that before
+// serving — otherwise the ledger shows work in progress that nobody is doing.
+reconcileInterrupted();
 
 const app = express();
 
@@ -62,6 +69,10 @@ const server = app.listen(port, '0.0.0.0', () => {
   console.log(
     `Attribution tag: ${process.env.ERC8021_ATTRIBUTION_TAG || '(unregistered — settlements will NOT count on the leaderboard)'}`
   );
+  // Where the settlement record lives is now a deploy-correctness question:
+  // on a container filesystem with no volume mounted this path is erased on
+  // every redeploy, and the evidence that someone paid goes with it.
+  console.log(`Store: ${process.env.ENCODE_DB_PATH || 'data/encode.db'}`);
 });
 
 // Platforms send SIGTERM then kill. Finish in-flight requests rather than

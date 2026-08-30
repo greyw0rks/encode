@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { listIncidents, getStats } from '../store/incidentStore.js';
+import { listIncidents, getStats, storeInfo } from '../store/incidentStore.js';
 import { attributionStatus } from '../celo/attribution.js';
 import { providerSummary } from '../llm/provider.js';
 import { paymentConfig } from '../celo/paymentConfig.js';
@@ -35,6 +35,8 @@ router.get('/v1/dashboard', (req, res) => {
 router.get('/v1/status', async (req, res) => {
   const payment = paymentConfig();
   const attribution = await attributionStatus();
+  const store = storeInfo();
+  const stats = getStats();
 
   const blockers = [];
   if (!payment.ready) blockers.push(`payment config incomplete: ${payment.missing.join(', ')}`);
@@ -46,14 +48,27 @@ router.get('/v1/status', async (req, res) => {
   if (!attribution.attributionTag) {
     blockers.push('not registered at celobuilders.xyz — no attribution tag, so settlements will not count on the leaderboard');
   }
+  // Warnings, not blockers: Encode can still take a payment. Taking money
+  // with no durable record of it is a different kind of wrong from not being
+  // able to take it at all, and collapsing the two would make
+  // canTakeRealPayments answer a question nobody asked.
+  const warnings = [];
+  if (!store.durable) warnings.push('incident store is in-memory — a restart would erase the record that a payer paid');
+  if (stats.unfulfilledPaid > 0) {
+    warnings.push(`${stats.unfulfilledPaid} paid incident(s) were never delivered — see GET /v1/dashboard`);
+  }
 
   res.json({
     service: 'encode-api',
     llm: providerSummary(),
     payment: { ready: payment.ready, missing: payment.missing, payTo: payment.payTo, network: payment.network },
     attribution,
+    // The path itself is server-side detail (see routes/publicView.js); what
+    // a caller has a claim on is whether their payment would be recorded.
+    store: { durable: store.durable, note: store.note },
     canTakeRealPayments: blockers.length === 0,
     blockers,
+    warnings,
   });
 });
 

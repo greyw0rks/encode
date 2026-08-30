@@ -6,7 +6,12 @@
  * end-to-end before spending real API calls or a real payment on it.
  */
 import { cloneRepo, getRepoTree, cleanupRepo } from '../src/repo/clone.js';
-import { createIncident, updateIncident, getIncident, getStats } from '../src/store/incidentStore.js';
+
+// The store is durable now. A dry run's fabricated settlement is excluded
+// from the stats by its DRYRUN payer marker, but it would still sit in the
+// real database as a row — so it gets its own throwaway one.
+process.env.ENCODE_DB_PATH = ':memory:';
+const { createIncident, updateIncident, getIncident, getStats } = await import('../src/store/incidentStore.js');
 
 function log(step, data) {
   console.log(`\n[${step}]`);

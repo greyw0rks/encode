@@ -184,6 +184,17 @@
   td.amt{ color:var(--up); font-family:var(--mono); font-weight:600; }
   .tx-link{ color:var(--ink); font-family:var(--mono); font-size:0.78rem; border-bottom:1px solid var(--ink-faint); }
 
+  /* A settled row where the work didn't land looks identical to one where it
+     did unless it's marked. Since payment is taken up front, that distinction
+     is the difference between a delivery and a debt, so it's stated on the
+     row rather than left to the reader. */
+  .row-flag{
+    display:inline-block; margin-left:8px; padding:1px 7px;
+    font-family:var(--mono); font-size:0.65rem; text-transform:uppercase; letter-spacing:0.04em;
+    border:1px solid var(--line-strong); color:var(--ink-dim); vertical-align:1px;
+  }
+  .row-flag.owed{ border-color:var(--mark-2); color:#8A5A1E; }
+
   /* Stat row above the ledger — uniqueSigners is the number that matters,
      so it gets its own visual weight instead of hiding in a caption. */
   .stat-row{
@@ -533,6 +544,27 @@ console.<span class="c2">log</span>(result.body.statusUrl);
   const escape = (s) =>
     String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
+  /*
+   * Payment is taken before the work runs, so a settled row is not proof of
+   * delivery. `interrupted` means the run was cut short by a restart and the
+   * payer holds nothing — money owed, not work done. Saying so on the row is
+   * the point of publishing the ledger at all.
+   */
+  const FLAGS = {
+    interrupted: ['owed', 'paid · not delivered'],
+    failed: ['owed', 'paid · no fix'],
+    detected: ['', 'in progress'],
+    diagnosing: ['', 'in progress'],
+    fix_drafted: ['', 'in progress'],
+  };
+
+  function flag(row) {
+    const entry = FLAGS[row.status];
+    if (!entry) return '';
+    const [kind, label] = entry;
+    return ` <span class="row-flag${kind ? ` ${kind}` : ''}">${escape(label)}</span>`;
+  }
+
   function render(data) {
     // Only settled rows belong in a settlement ledger.
     const settled = (data.recent || []).filter((r) => r.txHash && r.amount);
@@ -548,7 +580,7 @@ console.<span class="c2">log</span>(result.body.statusUrl);
               r.prUrl
                 ? ` <a href="${escape(r.prUrl)}" class="tx-link" target="_blank" rel="noopener">PR ↗</a>`
                 : ''
-            }</td>
+            }${flag(r)}</td>
             <td class="mono">${escape(short(r.payer, 4, 4))}</td>
             <td><a href="https://celoscan.io/tx/${encodeURIComponent(r.txHash)}" class="tx-link" target="_blank" rel="noopener">${escape(short(r.txHash))} ↗</a></td>
             <td class="amt">$${escape(Number(r.amount).toFixed(2))}</td>
@@ -567,9 +599,20 @@ console.<span class="c2">log</span>(result.body.statusUrl);
 
     // Said plainly rather than implied: "resolved" and "the original failure
     // was proven gone" are different claims, and only the second is strong.
-    statsLine.textContent =
+    let note =
       'Repro-confirmed means the reported failure was reproduced before the patch and no longer reproduces after it. ' +
       'Incidents verified by test suite alone are counted as resolved but not confirmed.';
+
+    // Surfaced here rather than only in the row flags: a visitor deciding
+    // whether to pay should be able to see how often paying didn't get them a
+    // fix, without auditing the table for it.
+    if (s.unfulfilledPaid > 0) {
+      note +=
+        ` ${s.unfulfilledPaid} paid incident${s.unfulfilledPaid === 1 ? '' : 's'} ` +
+        'did not result in a delivered fix — flagged in the table. Payment is taken up front, so those are refunds owed, not work done.';
+    }
+
+    statsLine.textContent = note;
   }
 
   function setStat(id, value) {

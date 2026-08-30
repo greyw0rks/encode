@@ -21,8 +21,12 @@ COPY scripts ./scripts
 # Run as a non-root user. The Coding Agent executes model-chosen commands
 # from a whitelist inside a scoped clone; root would make a whitelist bypass
 # considerably more interesting.
+#
+# /app/data holds the SQLite incident store and is the volume mount point.
+# It's created and chowned here because a platform-mounted volume arrives
+# owned by root, and a non-root process can't create its own database in it.
 RUN useradd --create-home --shell /usr/sbin/nologin encode \
-  && mkdir -p /app/tmp \
+  && mkdir -p /app/tmp /app/data \
   && chown -R encode:encode /app
 USER encode
 
@@ -35,7 +39,12 @@ RUN git config --global user.email "agent@encode.local" \
 
 ENV NODE_ENV=production
 ENV PORT=8787
+# Under /app/data so a mounted volume makes settlement records survive a
+# redeploy. Without a volume this is container-local and erased on deploy —
+# the store logs the path at boot for exactly that reason.
+ENV ENCODE_DB_PATH=/app/data/encode.db
 EXPOSE 8787
+VOLUME ["/app/data"]
 
 # Platform health checks hit /health; this is for `docker run` alone.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \

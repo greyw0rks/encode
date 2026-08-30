@@ -163,9 +163,8 @@ It also asserts the detail most likely to be got wrong: **USDC's EIP-712 domain 
 
 ## Deploy notes (not production-ready — flag before assuming otherwise)
 
-- In-memory store (`src/store/incidentStore.js`): a restart loses all incident history, including real settlement records.
-- `POST /v1/incidents` settles payment, returns `202`, then runs the incident. A crash mid-incident means the payer paid and got nothing, with no retry or refund path.
+- **Mount a volume at `/app/data`, or the store is not durable.** Incidents live in SQLite at `ENCODE_DB_PATH` (`/app/data/encode.db` in the image). On a container platform without a volume that path is erased on every redeploy, taking the record that someone paid with it. The process can't tell whether a volume is mounted, so `GET /v1/status` reports the path as durable and warns that it only survives *if* mounted — check the platform, don't trust the flag.
+- `POST /v1/incidents` settles payment, returns `202`, then runs the incident. A crash mid-incident still means the payer paid and got nothing: there is **no retry and no refund path**. The record now survives it — `reconcileInterrupted()` marks orphaned runs `interrupted` at boot, and `/v1/status` reports `unfulfilledPaid` — so the debt is visible, but settling it is manual.
 - **Deploy somewhere with no global git credential helper.** On a dev machine with `gh auth git-credential` configured, the incident clone can push on its own — Encode's "the model can't push" guarantee then rests only on the bash denylist, not on the absence of credentials.
-- No rate limiting. `/v1/status` makes two upstream facilitator calls per request and is unauthenticated.
 - `verify.js` runs `npm install` in the baseline worktree, and the bash whitelist permits `npm run <script>`. Both execute code the target repo controls. Fine for trusted repos; not for arbitrary ones.
 - `GITHUB_TOKEN` as used needs write access to whatever repos Encode patches — fine for your own, not viable for arbitrary client repos without a GitHub App / installation-token flow.

@@ -19,12 +19,17 @@
  */
 import '../src/config/env.js';
 import { cloneRepo, getRepoTree, getHeadCommit, cleanupRepo, repoGit } from '../src/repo/clone.js';
-import { createIncident, updateIncident, getIncident } from '../src/store/incidentStore.js';
 import { diagnose } from '../src/agents/incidentAgent.js';
 import { draftFix } from '../src/agents/codingAgent.js';
 import { providerSummary } from '../src/llm/provider.js';
 import { verifyFix } from '../src/verification/verify.js';
 import { openPullRequest } from '../src/verification/openPR.js';
+
+// A live run's settlement is fabricated (payment is the one mocked step), so
+// it must not land in the durable store alongside real ones. The LIVERUN payer
+// marker already excludes it from the stats; this keeps the row out entirely.
+process.env.ENCODE_DB_PATH = ':memory:';
+const { createIncident, updateIncident, getIncident } = await import('../src/store/incidentStore.js');
 
 function parseArgs() {
   const args = process.argv.slice(2);

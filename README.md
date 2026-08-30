@@ -66,7 +66,7 @@ encode/
 
 - The celobuilders submission is a **draft**. Publishing needs the X/Twitter post URL and `celoNetwork`, before Sept 14, 09:00 UTC; drafts show on the leaderboard flagged as not eligible.
 - **No real users and no real settlement.** Every track that counts anything is gated on distinct independent signers, and Encode has none. The unexercised step is a signature from a wallet that actually holds USDC.
-- Storage is in-memory. Settlement records don't survive a restart.
+- **A crash mid-incident is not refunded.** Payment is taken up front, so a run cut short by a restart leaves the payer with nothing. The record survives now — orphaned runs are marked `interrupted` at boot and `/v1/status` reports `unfulfilledPaid` — but making the payer whole is a manual step, not a code path.
 
 ## Four things that were wrong and are worth knowing
 

@@ -31,6 +31,9 @@ Keep this updated as work happens — check items off, add new ones as they're d
 - [x] Five harnesses, all passing: `test:verify`, `test:loop`, `test:client`, `test:facilitator`, `test:probe`.
 - [x] `GET /v1/status` — reports the LLM path, facilitator health, and the specific blockers preventing real payments.
 - [x] Dashboard stats now exclude test/dry-run payers from `uniqueSigners` and `totalValueProcessed`, and count attributable vs unattributable separately.
+- [x] **The incident store is durable** — `node:sqlite` (stdlib, no new dependency) at `ENCODE_DB_PATH`, `/app/data/encode.db` in the container with a `VOLUME` declared and the mount point pre-chowned so the non-root user can write to a platform-mounted volume. The API stayed synchronous so no caller changed and no `await` was introduced inside the incident pipeline. Verified across two container runs sharing a volume: a record written by one is read by the next, and with no volume the same test loses it — which is the failure mode the docs now warn about. Tests and dry runs pin `ENCODE_DB_PATH=:memory:` before importing the store, so a fixture payer can never reach the public ledger.
+- [x] **An interrupted incident is now visible debt rather than a silent loss.** Anything left non-terminal in the store belongs to a process that no longer exists, so `reconcileInterrupted()` runs at boot and marks it `interrupted` with the status it died in. `getStats()` reports `interrupted` and `unfulfilledPaid` separately from `failed` — an interrupted payer still counts as a signer, because the money did move; it's the delivery that failed. `/v1/status` warns, and the ledger row reads "paid · not delivered" instead of looking identical to a delivered fix.
+- [x] Rate limiting (`src/middleware/rateLimit.js`) — `/v1/status` 10/min since it fans out to the facilitator twice per call, `/v1/dashboard` 60, everything else under `/v1` 120. Fixed-window and in-memory, which is honest for one container.
 
 ### Facts that corrected the earlier plan
 
@@ -48,11 +51,9 @@ Keep this updated as work happens — check items off, add new ones as they're d
 
 ## Correctness gaps
 
-- [ ] `POST /v1/incidents` settles payment, then returns `202` and runs the incident **after** responding. If the process dies mid-incident the payer has paid for nothing and there's no retry — needs either a durable job record or a refund path before this takes real money at volume.
+- [ ] `POST /v1/incidents` settles payment, then returns `202` and runs the incident **after** responding. A process that dies mid-incident still leaves the payer having paid for nothing — there is no retry and **no refund path**. Half of this is now closed: the record is durable, `reconcileInterrupted()` marks orphaned runs `interrupted` at boot, the dashboard counts them as `unfulfilledPaid`, `/v1/status` warns, and the ledger flags the row "paid · not delivered". So the debt is visible and auditable. What's still missing is anything that *pays it back* — no automatic refund, no re-run.
 - [ ] **The "Coding Agent can't push" guarantee currently rests on the bash denylist alone.** On a machine with a global git credential helper (this one has `gh auth git-credential`), the incident clone can push without Encode supplying a token — confirmed by probing it. Deploy Encode where no ambient helper exists, or make the clone explicitly credential-less and pass auth only at push time.
 - [ ] Decide GitHub auth model for patching repos Encode doesn't own (PAT only works for your own repos — GitHub App needed for real clients)
-- [ ] Swap `src/store/incidentStore.js` from in-memory to Postgres/SQLite before this needs to survive a restart. Now more urgent than it was: settlements are real money and the only record of them is in RAM.
-- [ ] No rate limiting. `/v1/incidents` is payment-gated so abuse is self-limiting, but `/v1/status` and `/v1/dashboard` are open and `/v1/status` makes two upstream calls per request.
 - [ ] `verify.js` runs `npm install` in the baseline worktree, and the bash whitelist permits `npm run <script>` — both execute code the target repo controls. Acceptable for repos Encode's operator trusts, not for arbitrary client repos.
 - [ ] The Coding Agent's `run_bash` accepts absolute paths outside the clone (it used `ls /tmp/claude-1000` during the live run). `read_file`/`write_file` are confined; bash isn't. Worth confining the cwd or rejecting absolute paths that escape.
 

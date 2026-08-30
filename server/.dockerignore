@@ -3,6 +3,12 @@ npm-debug.log
 .env
 .env.local
 tmp
+# The local SQLite store. Never bake a dev database into the image —
+# it would ship real payer addresses and then be shadowed by the volume.
+data
+*.db
+*.db-wal
+*.db-shm
 .git
 .gitignore
 README.md

@@ -11,3 +11,9 @@ encode-project.zip
 # Local scratch clones the incident pipeline leaves behind if a run is
 # interrupted before cleanupRepo().
 tmp/
+
+# The SQLite incident store — real settlement records and payer addresses.
+data/
+*.db
+*.db-wal
+*.db-shm

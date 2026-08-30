@@ -25,6 +25,11 @@ import { checkBashCommand } from '../src/agents/bashPolicy.js';
 const execFileAsync = promisify(execFile);
 const git = (args, cwd) => execFileAsync('git', args, { cwd });
 
+// Set before the store is imported (it's a dynamic import in case 6 for
+// exactly this reason). A harness that wrote to the real DB would leave
+// fixture payers in the ledger the dashboard publishes.
+process.env.ENCODE_DB_PATH = ':memory:';
+
 let failures = 0;
 
 function check(label, condition, detail = '') {
@@ -203,7 +208,10 @@ function caseBashPolicy() {
  */
 async function caseSelfFundedExclusion() {
   console.log('\n[6] Dashboard stats — self-funded and test payments must not inflate the real numbers');
-  const { createIncident, getStats } = await import('../src/store/incidentStore.js');
+  const { createIncident, updateIncident, getStats } = await import('../src/store/incidentStore.js');
+  // The store is durable now, so a harness run would otherwise write fixture
+  // rows into the real database and corrupt the numbers it exists to protect.
+  if (process.env.ENCODE_DB_PATH !== ':memory:') throw new Error('harness must run against an in-memory store');
   const payout = '0xc61Bbc0CF5694EF410A578A9833f77C173790450';
 
   const settled = (payer, amount, selfFunded) => ({
@@ -215,11 +223,15 @@ async function caseSelfFundedExclusion() {
     attribution: { attributable: true },
   });
 
-  createIncident(settled('0xAAAA000000000000000000000000000000000001', '0.50', false));
-  createIncident(settled(payout, '0.50', true));
+  // Driven to a terminal status, not left at `detected`: these rows share the
+  // store with case 7, which reconciles anything still in flight.
+  const finish = (spec) => updateIncident(createIncident(spec).id, { status: 'resolved' });
+
+  finish(settled('0xAAAA000000000000000000000000000000000001', '0.50', false));
+  finish(settled(payout, '0.50', true));
   // Same payer, different casing — must not double-count.
-  createIncident(settled('0xaaaa000000000000000000000000000000000001', '0.20', false));
-  createIncident({ summary: 't', repo: {}, tier: 'fix', payer: '0xLIVERUN_TEST', settlement: { txHash: null, amount: '0.00' } });
+  finish(settled('0xaaaa000000000000000000000000000000000001', '0.20', false));
+  finish({ summary: 't', repo: {}, tier: 'fix', payer: '0xLIVERUN_TEST', settlement: { txHash: null, amount: '0.00' } });
 
   const stats = getStats();
   check('uniqueSigners counts only independent payers', stats.uniqueSigners === 1, String(stats.uniqueSigners));
@@ -227,6 +239,87 @@ async function caseSelfFundedExclusion() {
   check('totalValueProcessed excludes the self-funded payment', stats.totalValueProcessed === '0.70', stats.totalValueProcessed);
   check('selfFundedPayments is reported separately', stats.selfFundedPayments === 1, String(stats.selfFundedPayments));
   check('test-marked payers are excluded', stats.testPayments === 1, String(stats.testPayments));
+}
+
+/**
+ * An incident that was mid-run when the process died must not read as a
+ * failure or stay pending forever. The payer already paid, so the record has
+ * to say "paid, delivered nothing" loudly enough to be actionable.
+ */
+async function caseInterruptedReconciliation() {
+  console.log('\n[7] Restart reconciliation — a paid, half-run incident becomes visible debt');
+  const { createIncident, updateIncident, getIncident, reconcileInterrupted, getStats } = await import(
+    '../src/store/incidentStore.js'
+  );
+
+  const paid = createIncident({
+    summary: 'died mid-diagnosis',
+    repo: {},
+    tier: 'fix',
+    payer: '0xBBBB000000000000000000000000000000000002',
+    settlement: { txHash: '0xfeed', amount: '0.50', selfFunded: false },
+    attribution: { attributable: true },
+  });
+  updateIncident(paid.id, { status: 'diagnosing' });
+
+  const done = createIncident({
+    summary: 'already finished',
+    repo: {},
+    tier: 'triage',
+    payer: '0xCCCC000000000000000000000000000000000003',
+    settlement: { txHash: '0xbeef', amount: '0.20', selfFunded: false },
+  });
+  updateIncident(done.id, { status: 'resolved' });
+
+  const touched = reconcileInterrupted();
+
+  check('an in-flight incident is marked interrupted', getIncident(paid.id).status === 'interrupted');
+  check('a resolved incident is left alone', getIncident(done.id).status === 'resolved');
+  check('only the in-flight one was touched', touched.length === 1 && touched[0] === paid.id);
+  check('the error names the status it died in', /was diagnosing/.test(getIncident(paid.id).error));
+
+  const stats = getStats();
+  check('interrupted is counted separately from failed', stats.interrupted === 1, String(stats.interrupted));
+  check('paid-and-undelivered is surfaced', stats.unfulfilledPaid === 1, String(stats.unfulfilledPaid));
+  // The money did move, so it stays in the settled numbers — an interrupted
+  // incident is a delivery failure, not a payment that didn't happen.
+  check('an interrupted payer still counts as a signer', stats.uniqueSigners >= 1, String(stats.uniqueSigners));
+}
+
+/**
+ * The store's whole reason for existing now is surviving a restart, so that
+ * claim is tested against a real file that a second connection reopens.
+ */
+async function casePersistenceAcrossProcesses() {
+  console.log('\n[8] Durability — a record written by one process is readable by the next');
+  const dir = await mkdtemp(join(tmpdir(), 'encode-store-'));
+  const dbPath = join(dir, 'encode.db');
+  const script = (body) =>
+    execFileAsync(process.execPath, ['--input-type=module', '-e', body], {
+      env: { ...process.env, ENCODE_DB_PATH: dbPath },
+      cwd: join(import.meta.dirname, '..'),
+    });
+
+  try {
+    await script(`
+      const { createIncident } = await import('./src/store/incidentStore.js');
+      const i = createIncident({ summary: 'survives', repo: {}, tier: 'fix',
+        payer: '0xDDDD000000000000000000000000000000000004',
+        settlement: { txHash: '0xdead', amount: '0.50', selfFunded: false } });
+      console.log(i.id);
+    `);
+
+    const { stdout } = await script(`
+      const { getStats, listIncidents } = await import('./src/store/incidentStore.js');
+      console.log(JSON.stringify({ stats: getStats(), first: listIncidents()[0]?.summary }));
+    `);
+    const out = JSON.parse(stdout.trim().split('\n').pop());
+
+    check('the record is still there in a fresh process', out.first === 'survives', String(out.first));
+    check('and it still counts as a settlement', out.stats.settledPayments === 1, String(out.stats.settledPayments));
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 }
 
 async function main() {
@@ -238,6 +331,8 @@ async function main() {
   await caseNoRepro();
   caseBashPolicy();
   await caseSelfFundedExclusion();
+  await caseInterruptedReconciliation();
+  await casePersistenceAcrossProcesses();
 
   console.log(
     failures === 0
