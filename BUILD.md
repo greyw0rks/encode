@@ -159,7 +159,14 @@ It also asserts the detail most likely to be got wrong: **USDC's EIP-712 domain 
 
 ## 7. Landing page
 
-`landing-page.html` is a static single file — no build step. The ledger reads `GET /v1/dashboard` same-origin; override with `?api=https://your-api` when serving it separately.
+`landing-page.html` is a static single file — no build step. It reads `GET /v1/dashboard` and `GET /v1/status` same-origin; override with `?api=https://your-api` when serving it separately (which is the normal case, and why the API sets permissive CORS on the read endpoints).
+
+Built to a supplied reference design: three-column workspace, bone canvas, off-white nested panels, one orange accent, Instrument Serif display. **Depth comes from surface separation and 1px hairlines — there are no drop shadows on purpose.** Adding one back is what makes it look like every other dashboard.
+
+Two things to keep in mind when editing it:
+
+- **Nothing on the page is invented.** Every number comes from the API and every claim in the left and right columns links to the transaction, the agent registry, or the PR that proves it. If the API is unreachable the page says so and shows `—` rather than zeros, because a zero reads as a fact.
+- The reference's de-emphasised grey (`#94928A`) fails WCAG AA on these surfaces at ~2.6:1. `--faint` is `#67655E` instead, and the visual hierarchy is carried by uppercase mono and letter-spacing rather than lightness. Don't lighten it back.
 
 ## Deploy notes (not production-ready — flag before assuming otherwise)
 

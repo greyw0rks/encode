@@ -3,454 +3,571 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Encode — The agent that keeps your site fixed</title>
+<title>Encode — the agent that fixes what breaks, paid per incident</title>
+<meta name="description" content="Encode diagnoses a real incident in your repo, drafts a patch, runs your tests against it, and opens a PR. One payment, quoted up front, settled on Celo over x402.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Syne:wght@700;800&display=swap" rel="stylesheet">
 <style>
+  /*
+   * Built to a supplied reference design: warm bone canvas, off-white interior
+   * surfaces, one electric-orange accent, editorial serif for display type.
+   *
+   * Depth comes from surface separation and 1px hairlines — there are no drop
+   * shadows anywhere on purpose. Adding one back is what makes this look like
+   * every other dashboard, so don't.
+   */
   :root{
-    --bg:#F1ECDF;
-    --bg-card:#DFD8C4;
-    --bg-card-2:#E8E2D2;
-    --ink:#17181A;
-    --ink-dim:#5B5B52;
-    --ink-faint:#8C8A7B;
-    --line:#C7C0AA;
-    --line-strong:#B6AE93;
-    --mark:#7FE6D8;
-    --mark-2:#F2A65A;
-    --pill:#17181A;
-    --pill-text:#F1ECDF;
-    --up:#2E9C63;
-    --disp:'Fraunces', serif;
-    --body:'Inter', sans-serif;
-    --mono:'JetBrains Mono', monospace;
+    --canvas:#EAE8E1;      /* the page behind the frame */
+    --shell:#ECEAE2;       /* floating master frame */
+    --surface:#F6F5F0;     /* panels inside the frame */
+    --surface-2:#FFFFFF;   /* cards inside panels */
+    --ink:#111111;
+    --ink-2:#2A2A28;
+    --muted:#6B6B66;
+    /* Was #94928A, which is what the reference implies for a de-emphasised
+       label — and fails WCAG AA at 2.6:1 on the shell. Darkened until it
+       passes on the *lightest* surface it appears over. The hierarchy between
+       this and --muted is now carried by uppercase mono + letter-spacing
+       rather than by lightness, which is where it should have been anyway. */
+    --faint:#67655E;
+    --line:#D8D6CE;
+    --line-2:#C6C3B6;
+    --accent:#FF4D15;
+    /* The accent fails contrast as body text on a light surface, so text that
+       needs to be *read* in accent uses this darkened form instead. */
+    --accent-ink:#8A3A10;
+    --disp:'Instrument Serif', Georgia, serif;
+    --body:'Inter', system-ui, sans-serif;
+    --brand:'Syne', 'Inter', sans-serif;
+    --mono:'JetBrains Mono', ui-monospace, monospace;
+    --r-frame:32px;
+    --r-panel:24px;
+    --r-card:16px;
   }
-  *{box-sizing:border-box; margin:0; padding:0;}
-  html{scroll-behavior:smooth;}
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html{ scroll-behavior:smooth; }
   body{
-    background:var(--bg); color:var(--ink); font-family:var(--body); line-height:1.5;
-    -webkit-font-smoothing:antialiased;
+    background:var(--canvas); color:var(--ink); font-family:var(--body);
+    line-height:1.5; -webkit-font-smoothing:antialiased; padding:18px;
   }
-  a{color:inherit; text-decoration:none;}
-  .wrap{max-width:1180px; margin:0 auto; padding:0 32px;}
-  @media(max-width:560px){ .wrap{padding:0 20px;} }
-  ::selection{background:var(--mark); color:var(--ink);}
+  a{ color:inherit; text-decoration:none; }
+  ::selection{ background:var(--accent); color:#fff; }
+  @media(max-width:700px){ body{ padding:10px; } }
 
-  /* Keyboard focus was invisible before — every interactive element needs it. */
+  /* Focus was invisible in an earlier build of this page. Everything
+     interactive needs a ring that survives a light palette. */
   a:focus-visible, button:focus-visible{
-    outline:2px solid var(--ink); outline-offset:3px; border-radius:2px;
+    outline:2px solid var(--ink); outline-offset:2px; border-radius:6px;
   }
   .skip-link{
-    position:absolute; left:-9999px; top:0; background:var(--ink); color:var(--pill-text);
-    padding:10px 16px; z-index:10; font-size:0.85rem;
+    position:absolute; left:-9999px; top:0; z-index:20;
+    background:var(--ink); color:#fff; padding:10px 16px; font-size:0.85rem;
   }
-  .skip-link:focus{ left:8px; top:8px; }
+  .skip-link:focus{ left:0; top:0; }
   @media(prefers-reduced-motion:reduce){
-    html{scroll-behavior:auto;}
-    *{animation-duration:0.01ms !important; transition-duration:0.01ms !important;}
+    html{ scroll-behavior:auto; }
+    *{ animation-duration:0.01ms !important; transition-duration:0.01ms !important; }
   }
-
-  /* Outer framed page with dashed corner + crosshair marks, like the reference */
-  .framed{
-    margin:16px; border:1px solid var(--line); border-radius:2px; position:relative; overflow:hidden;
-  }
-  .framed::before{ /* diagonal-cut corner */
-    content:''; position:absolute; top:-1px; right:-1px; width:64px; height:64px;
-    background:var(--bg);
-    border-left:1px solid var(--line); border-bottom:1px solid var(--line);
-    clip-path:polygon(100% 0, 0 0, 100% 100%);
-  }
-  .crosshair{
-    position:absolute; width:14px; height:14px; pointer-events:none;
-  }
-  .crosshair::before,.crosshair::after{content:''; position:absolute; background:var(--line-strong);}
-  .crosshair::before{width:100%; height:1px; top:50%; left:0;}
-  .crosshair::after{width:1px; height:100%; left:50%; top:0;}
-  /* Absolutely-positioned decoration overlaps content on small screens. */
-  @media(max-width:900px){ .crosshair{display:none;} }
-
-  nav{ padding:22px 0; border-bottom:1px solid var(--line); }
-  nav .wrap{display:flex; align-items:center; justify-content:space-between;}
-  .brand{ font-family:var(--disp); font-weight:600; font-size:1.15rem; line-height:1.1; }
-  .brand span{display:block;}
-  .nav-pills{display:flex; align-items:center; gap:8px;}
-  .pill{
-    font-size:0.85rem; padding:9px 16px; border-radius:20px; border:1px solid var(--line-strong);
-    color:var(--ink-dim); background:transparent;
-  }
-  .pill:hover{border-color:var(--ink); color:var(--ink);}
-  .pill.dark{background:var(--pill); color:var(--pill-text); border-color:var(--pill); display:flex; align-items:center; gap:6px;}
-  @media(max-width:760px){ .nav-pills a:not(.dark){display:none;} }
-
-  /* STATUS STRIP — verifiable facts, linked to their on-chain source */
-  .status-strip{
-    border-bottom:1px solid var(--line); background:var(--bg-card-2);
-    font-family:var(--mono); font-size:0.72rem; color:var(--ink-dim);
-  }
-  .status-strip .wrap{
-    display:flex; flex-wrap:wrap; gap:10px 26px; align-items:center; padding:10px 32px;
-  }
-  .status-strip a{ border-bottom:1px solid var(--line-strong); }
-  .status-strip a:hover{ border-color:var(--ink); color:var(--ink); }
-  .status-dot{
-    display:inline-block; width:6px; height:6px; border-radius:50%;
-    background:var(--up); margin-right:7px; vertical-align:1px;
-  }
-  .status-dot.pending{ background:var(--mark-2); }
-
-  /* HERO */
-  .hero{ padding:80px 0 90px; position:relative; }
-  .hero-grid{display:grid; grid-template-columns:1.05fr 0.95fr; gap:40px; align-items:start;}
-  @media(max-width:900px){ .hero-grid{grid-template-columns:1fr;} }
-
-  h1{
-    font-family:var(--disp); font-weight:600; font-optical-sizing:auto;
-    font-size:clamp(2.1rem, 4.4vw, 3.4rem); line-height:1.18; letter-spacing:-0.01em;
-    max-width:600px;
-  }
-  h1 mark{
-    background:var(--mark); color:var(--ink); padding:0 4px; box-decoration-break:clone; -webkit-box-decoration-break:clone;
-  }
-  .hero-copy-card{
-    margin-top:34px; max-width:420px; border:1px solid var(--line-strong); background:var(--bg-card);
-    padding:22px 24px;
-  }
-  .hero-copy-card h3{ font-family:var(--disp); font-weight:600; font-size:1.02rem; margin-bottom:10px; }
-  .hero-copy-card p{ font-size:0.9rem; color:var(--ink-dim); line-height:1.6; }
-  .hero-ctas{display:flex; gap:12px; margin-top:26px;}
-  .btn-primary{
-    background:var(--pill); color:var(--pill-text); font-size:0.88rem; font-weight:500;
-    padding:12px 20px; border-radius:20px;
-  }
-  .btn-outline{
-    border:1px solid var(--ink); font-size:0.88rem; font-weight:500;
-    padding:12px 20px; border-radius:20px;
-  }
-  .btn-primary:hover{ background:#000; }
-  .btn-outline:hover{ background:var(--bg-card); }
-  @media(max-width:420px){
-    .hero-ctas{ flex-direction:column; align-items:stretch; }
-    .hero-ctas a{ text-align:center; }
-  }
-
-  /* ISOMETRIC ILLUSTRATION */
-  .illus{ position:relative; padding:30px 10px; }
-  .illus svg{ width:100%; height:auto; }
-  .scroll-hint{
-    position:absolute; bottom:-10px; left:0;
-    width:30px; height:30px; border:1px solid var(--line-strong); border-radius:50%;
-    display:flex; align-items:center; justify-content:center; font-size:0.8rem; color:var(--ink-dim);
-  }
-
-  section{padding:80px 0;}
-  .section-head{max-width:560px; margin-bottom:48px;}
-  .eyebrow{
-    font-family:var(--mono); font-size:0.74rem; color:var(--ink-faint);
-    text-transform:uppercase; letter-spacing:0.08em; margin-bottom:12px;
-  }
-  h2{ font-family:var(--disp); font-weight:600; font-size:clamp(1.5rem,2.8vw,2rem); letter-spacing:-0.01em; }
-  .section-sub{ color:var(--ink-dim); margin-top:12px; font-size:0.98rem; }
-
-  /* HOW IT WORKS */
-  .steps{ display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:var(--line); border:1px solid var(--line); }
-  .step{ background:var(--bg-card-2); padding:26px 22px; }
-  .step-num{ font-family:var(--mono); color:var(--ink-faint); font-size:0.8rem; margin-bottom:14px; }
-  .step h3{ font-family:var(--disp); font-weight:600; font-size:1.02rem; margin-bottom:8px; }
-  .step p{ color:var(--ink-dim); font-size:0.86rem; line-height:1.55; }
-  @media(max-width:860px){ .steps{grid-template-columns:1fr 1fr;} }
-  @media(max-width:560px){ .steps{grid-template-columns:1fr;} }
-
-  /* PRICING */
-  .pricing-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
-  .price-card{ border:1px solid var(--line-strong); background:var(--bg-card-2); padding:26px 22px; display:flex; flex-direction:column; }
-  .price-card.featured{ background:var(--bg-card); border-color:var(--ink); }
-  .price-tag{ font-family:var(--mono); font-size:0.7rem; color:var(--ink-faint); text-transform:uppercase; letter-spacing:0.06em; margin-bottom:12px; }
-  .price-amt{ font-family:var(--disp); font-size:2rem; font-weight:600; margin-bottom:4px; }
-  .price-amt small{ font-family:var(--body); font-size:0.82rem; color:var(--ink-dim); font-weight:400; }
-  .price-desc{ color:var(--ink-dim); font-size:0.85rem; margin-bottom:20px; min-height:40px; }
-  .price-list{ list-style:none; font-size:0.85rem; color:var(--ink-dim); }
-  .price-list li{ padding:7px 0; border-top:1px solid var(--line); display:flex; gap:8px; }
-  .price-list li:first-child{ border-top:none; }
-  .price-list li::before{ content:'—'; color:var(--ink-faint); }
-  @media(max-width:860px){ .pricing-grid{grid-template-columns:1fr;} }
-
-  /* LEDGER */
-  .ledger{ border:1px solid var(--line-strong); background:var(--bg-card-2); overflow-x:auto; }
-  table{ width:100%; border-collapse:collapse; font-size:0.83rem; min-width:600px; }
-  th{ text-align:left; padding:13px 18px; font-family:var(--mono); font-weight:500; color:var(--ink-faint); font-size:0.7rem; text-transform:uppercase; letter-spacing:0.05em; border-bottom:1px solid var(--line-strong); }
-  td{ padding:14px 18px; border-bottom:1px solid var(--line); color:var(--ink-dim); }
-  tr:last-child td{ border-bottom:none; }
-  td.mono, th.mono{ font-family:var(--mono); }
-  td.amt{ color:var(--up); font-family:var(--mono); font-weight:600; }
-  .tx-link{ color:var(--ink); font-family:var(--mono); font-size:0.78rem; border-bottom:1px solid var(--ink-faint); }
-
-  /* A settled row where the work didn't land looks identical to one where it
-     did unless it's marked. Since payment is taken up front, that distinction
-     is the difference between a delivery and a debt, so it's stated on the
-     row rather than left to the reader. */
-  .row-flag{
-    display:inline-block; margin-left:8px; padding:1px 7px;
-    font-family:var(--mono); font-size:0.65rem; text-transform:uppercase; letter-spacing:0.04em;
-    border:1px solid var(--line-strong); color:var(--ink-dim); vertical-align:1px;
-  }
-  .row-flag.owed{ border-color:var(--mark-2); color:#8A5A1E; }
-
-  /* Stat row above the ledger — uniqueSigners is the number that matters,
-     so it gets its own visual weight instead of hiding in a caption. */
-  .stat-row{
-    display:grid; grid-template-columns:repeat(4,1fr); gap:1px;
-    background:var(--line); border:1px solid var(--line-strong); border-bottom:none;
-  }
-  .stat{ background:var(--bg-card); padding:18px 20px; }
-  .stat-val{ font-family:var(--disp); font-weight:600; font-size:1.6rem; line-height:1.1; }
-  .stat-label{
-    font-family:var(--mono); font-size:0.68rem; color:var(--ink-faint);
-    text-transform:uppercase; letter-spacing:0.06em; margin-top:6px;
-  }
-  @media(max-width:700px){ .stat-row{grid-template-columns:1fr 1fr;} }
-
-  /* Visible to screen readers only — table captions that shouldn't render. */
   .sr-only{
     position:absolute; width:1px; height:1px; padding:0; margin:-1px;
     overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;
   }
+  /* `hidden` is only a display:none *default*, so any element given a display
+     value later silently ignores it. The tab panels below are grids, which is
+     exactly that case — both pricing tiers rendered at once until this. */
+  [hidden]{ display:none !important; }
 
-  /* AGENTS/DOCS */
-  .two-col{ display:grid; grid-template-columns:1fr 1fr; gap:44px; align-items:start; }
-  .two-col p{ color:var(--ink-dim); margin-bottom:15px; font-size:0.93rem; line-height:1.65; }
-  .code-panel{
-    background:var(--ink); color:#DCEFE9; border-radius:4px; padding:24px;
-    font-family:var(--mono); font-size:0.8rem; line-height:1.75; overflow-x:auto;
+  /* ---------- shell + 3-column workspace ---------- */
+  .frame{
+    max-width:1400px; margin:0 auto; background:var(--shell);
+    border:1px solid var(--line-2); border-radius:var(--r-frame); padding:20px;
   }
-  .code-panel .c1{ color:#8C9490; } .code-panel .c2{ color:var(--mark); } .code-panel .c3{ color:#B9E8C9; } .code-panel .c4{ color:var(--mark-2); }
-  @media(max-width:860px){ .two-col{grid-template-columns:1fr;} }
+  @media(max-width:700px){ .frame{ padding:12px; border-radius:20px; } }
 
-  /* Tabbed code panel — the 402 exchange and the signing snippet are two
-     different questions ("what does it return" vs "how do I pay"), so they
-     get two panels rather than one long scroll. */
-  .code-tabs{ display:flex; gap:6px; margin-bottom:10px; }
-  .code-tab{
-    font-family:var(--mono); font-size:0.72rem; padding:7px 13px; border-radius:14px;
-    border:1px solid var(--line-strong); color:var(--ink-dim); background:transparent; cursor:pointer;
+  .workspace{
+    display:grid; gap:18px;
+    grid-template-columns:minmax(0,3fr) minmax(0,6.5fr) minmax(0,3fr);
+    align-items:start;
   }
-  .code-tab[aria-selected="true"]{ background:var(--ink); color:var(--pill-text); border-color:var(--ink); }
-  .code-panel[hidden]{ display:none; }
-  .panel-note{
-    font-family:var(--mono); font-size:0.7rem; color:var(--ink-faint); margin-top:10px; line-height:1.6;
+  /* Below this the three columns stop being columns. Order matters: the
+     centre column carries the actual pitch, so it comes first on mobile. */
+  @media(max-width:1120px){
+    .workspace{ grid-template-columns:minmax(0,1fr); }
+    .col-main{ order:1; } .col-left{ order:2; } .col-right{ order:3; }
   }
 
-  footer{ border-top:1px solid var(--line); padding:40px 0; }
-  .foot-row{ display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; }
-  .foot-links{ display:flex; gap:22px; font-size:0.84rem; color:var(--ink-dim); }
-  .foot-links a:hover{ color:var(--ink); }
-  .foot-badge{ font-family:var(--mono); font-size:0.74rem; color:var(--ink-faint); border:1px solid var(--line-strong); padding:6px 12px; border-radius:20px; }
+  .col{ display:flex; flex-direction:column; gap:18px; min-width:0; }
+  .panel{
+    background:var(--surface); border:1px solid var(--line);
+    border-radius:var(--r-panel); padding:20px; min-width:0;
+  }
+
+  /* ---------- pills, buttons, badges ---------- */
+  .pill{
+    display:flex; align-items:center; gap:10px; width:100%;
+    padding:11px 16px; border-radius:999px;
+    background:var(--surface-2); border:1px solid var(--line);
+    font-size:0.8rem; font-weight:500; color:var(--ink-2);
+  }
+  .pill:hover{ border-color:var(--faint); color:var(--ink); }
+  .pill svg{ width:15px; height:15px; flex:none; stroke:var(--muted); }
+  .pill:hover svg{ stroke:var(--ink); }
+  .pill.spread{ justify-content:space-between; }
+  .pill-label{
+    font-family:var(--mono); font-size:0.7rem; font-weight:600;
+    text-transform:uppercase; letter-spacing:0.1em;
+  }
+  .pill-icon{
+    display:flex; align-items:center; justify-content:center;
+    width:24px; height:24px; border-radius:7px;
+    background:rgba(255,77,21,0.12);
+  }
+  .pill-icon svg{ width:13px; height:13px; stroke:var(--accent); }
+  .pill.spread:hover .pill-icon{ background:var(--accent); }
+  .pill.spread:hover .pill-icon svg{ stroke:#fff; }
+
+  .zap{
+    display:flex; align-items:center; justify-content:center; flex:none;
+    width:48px; height:48px; border-radius:999px;
+    background:var(--accent); border:none; cursor:pointer;
+  }
+  .zap svg{ width:20px; height:20px; fill:#111; }
+  .zap:hover{ background:#E63F0B; }
+
+  .badge{
+    font-family:var(--mono); font-size:0.6rem; font-weight:600;
+    text-transform:uppercase; letter-spacing:0.09em; color:var(--accent-ink);
+  }
+  .dot{
+    display:inline-block; width:6px; height:6px; border-radius:50%;
+    background:var(--accent); flex:none;
+  }
+
+  /* ---------- left column ---------- */
+  .brand{
+    display:flex; align-items:center; gap:8px;
+    font-family:var(--brand); font-weight:800; font-size:0.78rem;
+    text-transform:uppercase; letter-spacing:0.2em;
+  }
+  .brand-mark{
+    display:flex; align-items:center; justify-content:center; flex:none;
+    width:20px; height:20px; border-radius:50%; border:1.5px solid var(--ink);
+  }
+  .brand-mark svg{ width:11px; height:11px; fill:var(--ink); }
+
+  .nav{ display:flex; flex-direction:column; gap:8px; }
+
+  .timeline-head{
+    display:flex; align-items:center; justify-content:space-between;
+    padding-bottom:8px; margin-bottom:12px; border-bottom:1px solid var(--line);
+  }
+  .timeline-head .t{
+    display:flex; align-items:center; gap:7px;
+    font-family:var(--mono); font-size:0.68rem; font-weight:600;
+    text-transform:uppercase; letter-spacing:0.09em;
+  }
+  .timeline-head .y{ font-family:var(--mono); font-size:0.63rem; color:var(--faint); }
+  .timeline-group + .timeline-group{ margin-top:22px; }
+  .entry{
+    font-size:0.76rem; line-height:1.6; color:var(--muted);
+    padding:7px 0; border-bottom:1px dashed var(--line);
+  }
+  .entry:last-child{ border-bottom:none; }
+  .entry b{ color:var(--ink-2); font-weight:600; }
+  .entry .m{ font-family:var(--mono); font-size:0.68rem; color:var(--faint); }
+  .entry a{ border-bottom:1px solid var(--line-2); }
+  .entry a:hover{ border-color:var(--ink); color:var(--ink); }
+
+  /* ---------- centre: hero ---------- */
+  .hero{
+    display:flex; flex-direction:column; justify-content:space-between; gap:28px;
+    min-height:230px;
+  }
+  .hero h1{
+    font-family:var(--disp); font-weight:400;
+    font-size:clamp(1.9rem,3.6vw,3rem); line-height:1.12; letter-spacing:-0.015em;
+  }
+  /* The reference's trailing cursor. Decorative, so it's hidden from AT, and
+     the global reduced-motion override stops it blinking. */
+  .caret{
+    display:inline-block; width:0.42em; height:0.055em; margin-left:0.12em;
+    background:var(--ink); vertical-align:0.12em; animation:blink 1.15s steps(2,start) infinite;
+  }
+  @keyframes blink{ 50%{ opacity:0; } }
+  .hero-row{ display:flex; align-items:flex-end; justify-content:space-between; gap:20px; }
+  .hero-sub{
+    font-size:0.86rem; color:var(--muted); line-height:1.6; max-width:46ch; margin-top:12px;
+  }
+
+  /* ---------- centre: tier toggle ---------- */
+  .toggle{
+    display:grid; grid-template-columns:1fr 1fr; gap:4px; padding:4px;
+    background:var(--surface-2); border:1px solid var(--line); border-radius:999px;
+  }
+  .toggle button{
+    position:relative; overflow:hidden; cursor:pointer; border:none; background:transparent;
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    padding:12px 10px; border-radius:999px;
+    font-family:var(--mono); font-size:0.7rem; font-weight:600;
+    text-transform:uppercase; letter-spacing:0.09em; color:var(--faint);
+    /* "Fix & PR" wrapped onto two lines at 390px and made the two halves of
+       the switch different heights. */
+    white-space:nowrap;
+  }
+  .toggle button:hover{ color:var(--ink-2); }
+  .toggle button[aria-selected="true"]{ background:var(--ink); color:#fff; }
+  .toggle button svg{ width:14px; height:14px; stroke:currentColor; }
+  .toggle .price{
+    font-family:var(--mono); font-size:0.7rem; opacity:0.75; letter-spacing:0;
+  }
+  @media(max-width:440px){
+    .toggle button{ font-size:0.62rem; padding:11px 6px; gap:5px; letter-spacing:0.05em; }
+    .toggle button svg{ display:none; }
+  }
+
+  /* ---------- centre: cards ---------- */
+  .cards{ display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+  /* Stacked, the cards are as wide as the panel, so the gap that balanced a
+     tall narrow column just reads as a hole. */
+  @media(max-width:820px){
+    .cards{ grid-template-columns:1fr; }
+    .card{ gap:12px; }
+  }
+  .card{
+    display:flex; flex-direction:column; justify-content:space-between; gap:22px;
+    background:var(--surface-2); border:1px solid var(--line);
+    border-radius:var(--r-card); padding:16px;
+  }
+  .card:hover{ border-color:var(--faint); }
+  .card-top{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .card-ico{
+    display:flex; align-items:center; justify-content:center; flex:none;
+    width:30px; height:30px; border-radius:9px;
+    background:#F1F0EC; border:1px solid var(--line);
+  }
+  .card-ico svg{ width:15px; height:15px; stroke:var(--muted); }
+  .card p{ font-size:0.78rem; line-height:1.62; color:var(--muted); }
+  .card strong{ display:block; color:var(--ink); font-size:0.82rem; margin-bottom:5px; font-weight:600; }
+  .card a{ border-bottom:1px solid var(--line-2); }
+  .card a:hover{ border-color:var(--ink); color:var(--ink); }
+
+  /* ---------- centre: ledger ---------- */
+  .sec-head{ display:flex; align-items:baseline; justify-content:space-between; gap:16px; flex-wrap:wrap; }
+  .sec-head h2{
+    font-family:var(--disp); font-weight:400; font-size:clamp(1.4rem,2.4vw,1.9rem); letter-spacing:-0.01em;
+  }
+  .eyebrow{
+    font-family:var(--mono); font-size:0.65rem; color:var(--faint);
+    text-transform:uppercase; letter-spacing:0.11em;
+  }
+  .ledger{
+    margin-top:16px; background:var(--surface-2); border:1px solid var(--line);
+    border-radius:var(--r-card); overflow:hidden;
+  }
+  .ledger-scroll{ overflow-x:auto; }
+  table{ width:100%; border-collapse:collapse; font-size:0.79rem; min-width:560px; }
+  th{
+    text-align:left; padding:11px 16px; border-bottom:1px solid var(--line);
+    font-family:var(--mono); font-weight:500; font-size:0.63rem; color:var(--faint);
+    text-transform:uppercase; letter-spacing:0.08em;
+  }
+  td{ padding:13px 16px; border-bottom:1px solid var(--line); color:var(--muted); }
+  tr:last-child td{ border-bottom:none; }
+  td.mono, th.mono{ font-family:var(--mono); }
+  td.amt{ font-family:var(--mono); font-weight:600; color:var(--ink); }
+  .tx-link{ font-family:var(--mono); font-size:0.74rem; color:var(--ink-2); border-bottom:1px solid var(--line-2); }
+  .tx-link:hover{ border-color:var(--ink); color:var(--ink); }
+
+  /* A settled row where the work never landed looks identical to one where it
+     did unless it's marked. Payment is taken up front, so that distinction is
+     the difference between a delivery and a debt — stated on the row rather
+     than left to the reader to work out. */
+  .row-flag{
+    display:inline-block; margin-left:7px; padding:1px 7px; border-radius:999px;
+    font-family:var(--mono); font-size:0.6rem; text-transform:uppercase; letter-spacing:0.05em;
+    border:1px solid var(--line-2); color:var(--muted); vertical-align:1px; white-space:nowrap;
+  }
+  .row-flag.owed{ border-color:var(--accent); color:var(--accent-ink); }
+  .ledger-note{
+    font-family:var(--mono); font-size:0.66rem; line-height:1.65; color:var(--faint); margin-top:12px;
+  }
+
+  /* ---------- centre: docs ---------- */
+  .tabs{ display:flex; gap:6px; margin:16px 0 12px; }
+  .tab{
+    font-family:var(--mono); font-size:0.66rem; font-weight:600; cursor:pointer;
+    padding:7px 14px; border-radius:999px;
+    background:var(--surface-2); border:1px solid var(--line); color:var(--muted);
+    text-transform:uppercase; letter-spacing:0.08em;
+  }
+  .tab[aria-selected="true"]{ background:var(--ink); color:#fff; border-color:var(--ink); }
+  .code{
+    background:#141412; color:#E6E3DA; border-radius:var(--r-card); padding:20px;
+    font-family:var(--mono); font-size:0.74rem; line-height:1.8; overflow-x:auto;
+    white-space:pre;
+  }
+  .code[hidden]{ display:none; }
+  .code .c1{ color:#8A8880; }              /* keywords, headers */
+  .code .c2{ color:#F0A47E; }              /* keys */
+  .code .c3{ color:#BFD8B4; }              /* values */
+  .code .c4{ color:var(--accent); }        /* responses */
+  .note{ font-family:var(--mono); font-size:0.66rem; line-height:1.7; color:var(--faint); margin-top:12px; }
+  .note a{ color:var(--ink-2); border-bottom:1px solid var(--line-2); }
+
+  /* ---------- right column ---------- */
+  .who{ display:flex; align-items:center; gap:11px; padding-bottom:16px; border-bottom:1px solid var(--line); }
+  .avatar{
+    display:flex; align-items:center; justify-content:center; flex:none;
+    width:36px; height:36px; border-radius:50%;
+    background:var(--ink); color:#fff; font-family:var(--brand); font-weight:800; font-size:0.72rem;
+  }
+  .who .l1{ font-size:0.78rem; font-weight:600; }
+  .who .l2{ font-size:0.72rem; color:var(--muted); }
+
+  .insights{ display:flex; flex-direction:column; gap:16px; margin-top:18px; }
+  .insight{ display:flex; gap:11px; align-items:flex-start; }
+  .insight svg{ width:15px; height:15px; flex:none; margin-top:2px; stroke:var(--faint); }
+  .insight .k{
+    font-family:var(--mono); font-size:0.6rem; font-weight:600; color:var(--faint);
+    text-transform:uppercase; letter-spacing:0.08em; display:block; margin-bottom:3px;
+  }
+  .insight p{ font-size:0.75rem; line-height:1.6; color:var(--muted); }
+  .insight a{ color:var(--ink-2); border-bottom:1px solid var(--line-2); }
+  .insight a:hover{ border-color:var(--ink); }
+
+  .metrics{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:18px; }
+  .metric{
+    background:var(--surface-2); border:1px solid var(--line); border-radius:var(--r-card); padding:13px 14px;
+  }
+  .metric .v{ font-family:var(--disp); font-size:1.5rem; line-height:1; }
+  .metric .l{
+    font-family:var(--mono); font-size:0.58rem; color:var(--faint);
+    text-transform:uppercase; letter-spacing:0.07em; margin-top:6px; line-height:1.4;
+  }
+  /* An "owed" metric reading zero is good news and shouldn't shout; reading
+     non-zero is the most important number on the page. Set from JS. */
+  .metric.flag{ border-color:var(--accent); }
+  .metric.flag .v{ color:var(--accent-ink); }
+
+  .foot{
+    display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap;
+    margin-top:18px; padding:0 6px;
+    font-family:var(--mono); font-size:0.64rem; color:var(--faint);
+  }
+  .foot a{ border-bottom:1px solid var(--line-2); }
+  .foot a:hover{ color:var(--ink); border-color:var(--ink); }
 </style>
 </head>
 <body>
 
-<a href="#hero" class="skip-link">Skip to content</a>
+<a href="#main" class="skip-link">Skip to content</a>
 
-<div class="framed">
-  <div class="crosshair" style="top:24px; left:520px;"></div>
-  <div class="crosshair" style="top:150px; right:60px;"></div>
-  <div class="crosshair" style="bottom:80px; right:220px;"></div>
-  <div class="crosshair" style="bottom:24px; left:280px;"></div>
+<div class="frame">
+  <div class="workspace">
 
-  <nav>
-    <div class="wrap">
-      <div class="brand"><span>Encode</span></div>
-      <div class="nav-pills">
-        <a href="#hero" class="pill">Home</a>
-        <a href="#how" class="pill">How It Works</a>
-        <a href="#pricing" class="pill">Pricing</a>
-        <a href="#agents" class="pill">Docs</a>
-        <a href="#pricing" class="pill dark">Get Started ↓</a>
+    <!-- ================= LEFT: identity, nav, real history ================= -->
+    <aside class="col col-left">
+      <div class="panel">
+        <div class="brand" style="margin-bottom:16px;">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z"/></svg>
+          </span>
+          Encode
+        </div>
+
+        <a href="#main" class="pill spread" style="margin-bottom:12px;">
+          <span class="pill-label">File an incident</span>
+          <span class="pill-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          </span>
+        </a>
+
+        <nav class="nav" aria-label="Sections">
+          <a href="#how" class="pill">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V21H3z"/></svg>
+            <span>How it works</span>
+          </a>
+          <a href="#docs" class="pill">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h11l5 5v11H4z"/><path d="M15 4v5h5"/></svg>
+            <span>Docs &amp; payment</span>
+          </a>
+          <a href="#ledger" class="pill">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+            <span>Settlement ledger</span>
+          </a>
+          <a href="https://github.com/greyw0rks/encode" class="pill" target="_blank" rel="noopener">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18-6-6 6-6M15 6l6 6-6 6"/></svg>
+            <span>Source</span>
+          </a>
+        </nav>
       </div>
-    </div>
-  </nav>
 
-  <div class="status-strip">
-    <div class="wrap">
-      <span><span class="status-dot"></span>ERC-8004 agent <a href="https://www.8004scan.io/agents/celo/9794" target="_blank" rel="noopener">9794</a> on Celo mainnet</span>
-      <span>x402 <a href="https://api.x402.celo.org/health" target="_blank" rel="noopener">facilitator</a> · USDC</span>
-      <span><a href="https://github.com/greyw0rks/encode" target="_blank" rel="noopener">Source</a></span>
-      <span><span class="status-dot pending"></span>No settlements yet</span>
-    </div>
-  </div>
-
-  <header class="hero" id="hero">
-    <div class="wrap">
-      <div class="hero-grid">
-        <div>
-          <h1>The Agent for <mark>Fixing What Breaks</mark> Before Anyone Notices</h1>
-
-          <div class="hero-copy-card">
-            <h3>Paid Per Fix, Not Per Month</h3>
-            <p>Encode diagnoses a real incident in your repo, drafts a patch, runs your tests against it, and opens a PR. One payment, quoted up front, settled on Celo before the work starts. No retainer, no idle subscription.</p>
+      <!--
+        The reference has a chat history here. Encode has something better and
+        real: the things it has actually done and can be checked on. Every item
+        links to on-chain or on-GitHub evidence — no invented activity.
+      -->
+      <div class="panel" style="flex:1;">
+        <div class="timeline-group">
+          <div class="timeline-head">
+            <span class="t"><span class="dot" aria-hidden="true"></span>August</span>
+            <span class="y">2026</span>
           </div>
+          <p class="entry">
+            <b>Identity minted on Celo mainnet.</b> ERC-8004
+            <a href="https://www.8004scan.io/agents/celo/9794" target="_blank" rel="noopener">agent 9794</a>,
+            resolving to a registration file in the repo.
+          </p>
+          <p class="entry">
+            <b>First real fix, start to PR.</b> Found an off-by-one in cursor pagination, patched it, added two
+            regression tests, opened <a href="https://github.com/greyw0rks/encore-testbed/pull/1" target="_blank" rel="noopener">PR #1</a>.
+            <span class="m">verified: repro-confirmed</span>
+          </p>
+          <p class="entry">
+            <b>Payment path proven against the live facilitator.</b> Settlement key verified, EIP-712 domains
+            checked against each token's own on-chain separator.
+          </p>
+        </div>
 
-          <div class="hero-ctas">
-            <a href="#agents" class="btn-primary">See how to pay</a>
-            <a href="#pricing" class="btn-outline">Pricing →</a>
+        <div class="timeline-group">
+          <div class="timeline-head">
+            <span class="t"><span class="dot" aria-hidden="true"></span>Open</span>
+            <span class="y">now</span>
+          </div>
+          <p class="entry">
+            <b>No independent payer yet.</b> The ledger below is empty and says so. It fills in from
+            <span class="m">GET /v1/dashboard</span> as real settlements land.
+          </p>
+        </div>
+      </div>
+    </aside>
+    <!-- ================= CENTRE: the pitch ================= -->
+    <main class="col col-main" id="main">
+      <div class="panel hero">
+        <span class="eyebrow">x402 on Celo · pay per incident</span>
+        <div>
+          <h1>Something broke.<br>Get it fixed<span class="caret" aria-hidden="true"></span></h1>
+          <p class="hero-sub">
+            Encode reads your logs and your code, works out what actually broke, drafts a patch, runs your tests
+            against it, and opens a PR. One payment, quoted before it starts. Nothing merges without you.
+          </p>
+        </div>
+        <div class="hero-row">
+          <a href="#docs" class="pill" style="width:auto;">
+            <span class="pill-label">How to pay</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </a>
+          <a href="#docs" class="zap" aria-label="How to pay">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z"/></svg>
+          </a>
+        </div>
+      </div>
+
+      <div class="panel" id="how">
+        <div class="sec-head">
+          <h2>Two tiers. Both quoted up front.</h2>
+          <span class="eyebrow">pricing</span>
+        </div>
+
+        <!--
+          Styled as the reference's segmented switch, but it selects a real
+          thing: which tier the cards below describe. Progressive enhancement —
+          with JS off both panels are in the DOM and only one is `hidden`, so
+          the content is still reachable.
+        -->
+        <div class="toggle" role="tablist" aria-label="Pricing tier" style="margin:16px 0 14px;">
+          <button role="tab" id="tab-triage" aria-controls="tier-triage" aria-selected="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 3a8 8 0 1 0 8 8h-8V3Z"/></svg>
+            Triage <span class="price">$0.20</span>
+          </button>
+          <button role="tab" id="tab-fix" aria-controls="tier-fix" aria-selected="false">
+            Fix &amp; PR <span class="price">$0.50</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </button>
+        </div>
+
+        <div class="cards" id="tier-triage" role="tabpanel" aria-labelledby="tab-triage">
+          <div class="card">
+            <div class="card-top">
+              <span class="card-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h11l5 5v11H4z"/><path d="M15 4v5h5"/></svg></span>
+              <span class="badge">what you get</span>
+            </div>
+            <p><strong>A cause, not a guess</strong>Encode reads the relevant code and logs and tells you what broke and why — with a severity rating and the files involved.</p>
+          </div>
+          <div class="card">
+            <div class="card-top">
+              <span class="card-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4.3-4.3"/></svg></span>
+            </div>
+            <p><strong>A repro command</strong>The exact command that demonstrates the failure, so you can confirm the diagnosis yourself rather than take it on faith.</p>
+          </div>
+          <div class="card">
+            <div class="card-top">
+              <span class="card-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></span>
+            </div>
+            <p><strong>No patch, no PR</strong>Nothing is written to your repo at this tier. If the incident turns out not to be real, Encode says so instead of inventing a fix.</p>
           </div>
         </div>
 
-        <div class="illus" aria-hidden="true">
-          <svg viewBox="0 0 420 460" xmlns="http://www.w3.org/2000/svg" role="presentation" focusable="false">
-            <!-- isometric grid dots -->
-            <g stroke="var(--line)" stroke-width="1" fill="none" opacity="0.6">
-              <line x1="0" y1="60" x2="420" y2="60"/>
-              <line x1="0" y1="230" x2="420" y2="230"/>
-              <line x1="0" y1="400" x2="420" y2="400"/>
-              <line x1="60" y1="0" x2="60" y2="460"/>
-              <line x1="360" y1="0" x2="360" y2="460"/>
-            </g>
-
-            <!-- LAYER 1: Detect (signal nodes) -->
-            <g transform="translate(210,90)">
-              <polygon points="0,-46 80,-4 0,38 -80,-4" fill="var(--bg-card-2)" stroke="var(--ink)" stroke-width="1.4"/>
-              <circle cx="-24" cy="-14" r="7" fill="none" stroke="var(--ink)" stroke-width="1.4"/>
-              <circle cx="20" cy="-24" r="7" fill="none" stroke="var(--ink)" stroke-width="1.4"/>
-              <circle cx="6" cy="10" r="7" fill="var(--mark-2)" stroke="var(--ink)" stroke-width="1.4"/>
-              <line x1="-17" y1="-14" x2="13" y2="-22" stroke="var(--ink)" stroke-width="1"/>
-              <line x1="26" y1="-19" x2="10" y2="5" stroke="var(--ink)" stroke-width="1"/>
-              <line x1="-18" y1="-9" x2="0" y2="6" stroke="var(--ink)" stroke-width="1"/>
-            </g>
-
-            <!-- connector -->
-            <line x1="210" y1="132" x2="210" y2="180" stroke="var(--line-strong)" stroke-width="1.4" stroke-dasharray="3 4"/>
-
-            <!-- LAYER 2: Diagnose (network graph) -->
-            <g transform="translate(210,225)">
-              <polygon points="0,-46 100,-4 0,38 -100,-4" fill="var(--bg-card)" stroke="var(--ink)" stroke-width="1.4"/>
-              <g stroke="var(--ink)" stroke-width="1" fill="none">
-                <line x1="-40" y1="-6" x2="0" y2="-22"/>
-                <line x1="0" y1="-22" x2="38" y2="-4"/>
-                <line x1="-40" y1="-6" x2="-6" y2="14"/>
-                <line x1="-6" y1="14" x2="38" y2="-4"/>
-                <line x1="0" y1="-22" x2="-6" y2="14"/>
-              </g>
-              <circle cx="-40" cy="-6" r="5.5" fill="var(--bg)" stroke="var(--ink)" stroke-width="1.3"/>
-              <circle cx="0" cy="-22" r="5.5" fill="var(--bg)" stroke="var(--ink)" stroke-width="1.3"/>
-              <circle cx="38" cy="-4" r="5.5" fill="var(--bg)" stroke="var(--ink)" stroke-width="1.3"/>
-              <circle cx="-6" cy="14" r="5.5" fill="var(--mark)" stroke="var(--ink)" stroke-width="1.3"/>
-            </g>
-
-            <!-- connector -->
-            <line x1="210" y1="267" x2="210" y2="315" stroke="var(--line-strong)" stroke-width="1.4" stroke-dasharray="3 4"/>
-
-            <!-- LAYER 3: Fix + settle (check + coin) -->
-            <g transform="translate(210,360)">
-              <polygon points="0,-46 90,-4 0,38 -90,-4" fill="var(--ink)" stroke="var(--ink)" stroke-width="1.4"/>
-              <path d="M -22,-4 L -6,12 L 26,-20" fill="none" stroke="var(--mark)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-            </g>
-
-            <!-- crosshairs scattered -->
-            <g stroke="var(--line-strong)" stroke-width="1">
-              <line x1="34" y1="45" x2="48" y2="45"/><line x1="41" y1="38" x2="41" y2="52"/>
-              <line x1="366" y1="180" x2="380" y2="180"/><line x1="373" y1="173" x2="373" y2="187"/>
-              <line x1="356" y1="410" x2="370" y2="410"/><line x1="363" y1="403" x2="363" y2="417"/>
-            </g>
-          </svg>
-          <div class="scroll-hint">↓</div>
-        </div>
-      </div>
-    </div>
-  </header>
-
-  <section id="how">
-    <div class="wrap">
-      <div class="section-head">
-        <div class="eyebrow">How it works</div>
-        <h2>One job. Start to settlement.</h2>
-        <p class="section-sub">Every incident runs the same four steps, in order — that's what makes the price predictable.</p>
-      </div>
-      <div class="steps">
-        <div class="step"><div class="step-num">01</div><h3>Quote</h3><p>Send the incident. Encode returns a 402 with a fixed price — $0.20 to triage, $0.50 for a fix and PR. Nothing runs until you sign.</p></div>
-        <div class="step"><div class="step-num">02</div><h3>Settle</h3><p>Your wallet pays over x402 on Celo. One on-chain transaction, straight to Encode — no escrow, no account, no invoice.</p></div>
-        <div class="step"><div class="step-num">03</div><h3>Diagnose</h3><p>Encode reads the relevant logs and code, decides whether the incident is real, and works out the likely cause.</p></div>
-        <div class="step"><div class="step-num">04</div><h3>Fix &amp; verify</h3><p>A patch is drafted and the tests run — plus the original failure is re-checked against the unpatched code, so "fixed" means something. Then a PR opens. Nothing merges without your review.</p></div>
-      </div>
-    </div>
-  </section>
-
-  <section id="pricing">
-    <div class="wrap">
-      <div class="section-head">
-        <div class="eyebrow">Pricing</div>
-        <h2>Pay per resolved incident.</h2>
-        <p class="section-sub">Quoted before Encode starts, settled before it works. USDC or USDT on Celo — the two assets the x402 facilitator settles.</p>
-      </div>
-      <div class="pricing-grid">
-        <div class="price-card">
-          <div class="price-tag">Triage</div>
-          <div class="price-amt">$0.20<small> / incident</small></div>
-          <p class="price-desc">Encode tells you what broke and why. You decide what to do about it.</p>
-          <ul class="price-list"><li>Root-cause diagnosis</li><li>Severity rating</li><li>No patch, no PR</li></ul>
-        </div>
-        <div class="price-card featured">
-          <div class="price-tag">Fix &amp; PR</div>
-          <div class="price-amt">$0.50<small> / incident</small></div>
-          <p class="price-desc">Diagnosis plus a working patch, opened as a pull request against your repo.</p>
-          <ul class="price-list"><li>Everything in Triage</li><li>Patch with the tests run against it</li><li>Original failure re-checked, not assumed</li><li>PR opened — you review and merge</li></ul>
-        </div>
-        <div class="price-card">
-          <div class="price-tag">Standing watch</div>
-          <div class="price-amt">Soon<small> · not yet live</small></div>
-          <p class="price-desc">Point Encode at your endpoints and it files its own incidents when something breaks.</p>
-          <ul class="price-list"><li>Continuous monitoring, no flat fee</li><li>Per-incident settlement as above</li><li>Not built yet — today you file the incident</li></ul>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section id="ledger">
-    <div class="wrap">
-      <div class="section-head">
-        <div class="eyebrow">On-chain ledger</div>
-        <h2>Every payment, settled and visible.</h2>
-        <p class="section-sub">Nothing is invoiced. Each row is a real x402 settlement on Celo, pulled live from Encode's own dashboard endpoint — including the ones where verification came up short.</p>
-      </div>
-      <div class="stat-row">
-        <div class="stat"><div class="stat-val" id="stat-signers">—</div><div class="stat-label">Independent signers</div></div>
-        <div class="stat"><div class="stat-val" id="stat-value">—</div><div class="stat-label">Settled</div></div>
-        <div class="stat"><div class="stat-val" id="stat-resolved">—</div><div class="stat-label">Incidents resolved</div></div>
-        <div class="stat"><div class="stat-val" id="stat-confirmed">—</div><div class="stat-label">Repro-confirmed</div></div>
-      </div>
-      <div class="ledger">
-        <table>
-          <caption class="sr-only">Settled x402 payments to Encode</caption>
-          <thead><tr><th>Incident</th><th class="mono">Payer</th><th class="mono">Settlement</th><th class="mono">Amount</th></tr></thead>
-          <tbody id="ledger-rows">
-            <tr><td colspan="4" class="mono" style="color:var(--ink-faint);">Loading…</td></tr>
-          </tbody>
-        </table>
-      </div>
-      <p class="mono" id="ledger-stats" style="margin-top:14px;font-size:0.72rem;color:var(--ink-faint);line-height:1.6;"></p>
-    </div>
-  </section>
-
-  <section id="agents">
-    <div class="wrap">
-      <div class="section-head">
-        <div class="eyebrow">For agents &amp; teams</div>
-        <h2>Encode is an x402 endpoint. Any agent can hire it.</h2>
-      </div>
-      <div class="two-col">
-        <div>
-          <p>Encode doesn't require an account, an API key negotiation, or a support ticket. Send a request; if payment is required you get a 402 back carrying the price, the payout address, and the exact EIP-712 domain to sign against. Sign, retry, done.</p>
-          <p>Signing costs no gas and moves nothing on its own. What you sign is an EIP-3009 authorization: permission for one pull, of one amount, inside a time window you set. The x402 facilitator submits it on-chain and pays that gas.</p>
-          <p>That means your monitoring agent, CI pipeline, or another autonomous agent can hire Encode programmatically, with no human in the loop on either side. The client below is <a href="https://github.com/greyw0rks/encode/blob/main/server/src/client/x402Client.js" target="_blank" rel="noopener" style="border-bottom:1px solid var(--ink-faint);">~200 lines with one dependency</a> — copy it, or read it and decide it's safe to sign with.</p>
-        </div>
-        <div>
-          <div class="code-tabs" role="tablist" aria-label="Integration examples">
-            <button class="code-tab" role="tab" id="tab-http" aria-controls="panel-http" aria-selected="true">402 exchange</button>
-            <button class="code-tab" role="tab" id="tab-sign" aria-controls="panel-sign" aria-selected="false">Pay it</button>
+        <div class="cards" id="tier-fix" role="tabpanel" aria-labelledby="tab-fix" hidden>
+          <div class="card">
+            <div class="card-top">
+              <span class="card-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 20 4-1 9-9-3-3-9 9-1 4Z"/><path d="m14 7 3 3"/></svg></span>
+              <span class="badge">everything in triage, plus</span>
+            </div>
+            <p><strong>A patch, with your tests run</strong>Encode writes the fix on a branch and runs your own suite against it. A failing suite is reported as failing, never rounded up.</p>
           </div>
+          <div class="card">
+            <div class="card-top">
+              <span class="card-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span>
+            </div>
+            <p><strong>The original failure re-checked</strong>The repro is run against the <em>unpatched</em> commit too. If it passes on both, that proves nothing — and Encode reports it as unconfirmed.</p>
+          </div>
+          <div class="card">
+            <div class="card-top">
+              <span class="card-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="6" r="2.5"/><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M6 8.5v7M8.5 6h7"/></svg></span>
+            </div>
+            <p><strong>A PR you review</strong>The branch is pushed and a pull request opened. Encode cannot merge and cannot deploy — the terminal action is always "PR opened".</p>
+          </div>
+        </div>
+      </div>
+      <div class="panel" id="ledger">
+        <div class="sec-head">
+          <h2>Every payment, settled and visible.</h2>
+          <span class="eyebrow">on-chain ledger</span>
+        </div>
+        <div class="ledger">
+          <div class="ledger-scroll">
+            <table>
+              <caption class="sr-only">Settled x402 payments to Encode</caption>
+              <thead><tr><th>Incident</th><th class="mono">Payer</th><th class="mono">Settlement</th><th class="mono">Amount</th></tr></thead>
+              <tbody id="ledger-rows">
+                <tr><td colspan="4" class="mono" style="color:var(--faint);">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <p class="ledger-note" id="ledger-note"></p>
+      </div>
 
-          <div class="code-panel" id="panel-http" role="tabpanel" aria-labelledby="tab-http">
-<span class="c1">POST</span> /v1/incidents <span class="c1">HTTP/1.1</span>
-<span class="c1">Host:</span> encode.agent
+      <div class="panel" id="docs">
+        <div class="sec-head">
+          <h2>An x402 endpoint. Any agent can hire it.</h2>
+          <span class="eyebrow">docs</span>
+        </div>
+        <p class="hero-sub" style="max-width:64ch;">
+          No account, no API key negotiation. Send a request; if payment is required you get a 402 carrying the
+          price, the payout address, and the exact EIP-712 domain to sign against. What you sign is an EIP-3009
+          authorization — one pull, one amount, inside a window you set. Signing costs no gas and moves nothing
+          on its own; the facilitator submits it and pays that gas.
+        </p>
+
+        <div class="tabs" role="tablist" aria-label="Integration examples">
+          <button class="tab" role="tab" id="tab-http" aria-controls="panel-http" aria-selected="true">402 exchange</button>
+          <button class="tab" role="tab" id="tab-sign" aria-controls="panel-sign" aria-selected="false">Pay it</button>
+        </div>
+
+<div class="code" id="panel-http" role="tabpanel" aria-labelledby="tab-http"><span class="c1">POST</span> /v1/incidents <span class="c1">HTTP/1.1</span>
 
 <span class="c4">← 402 Payment Required</span>
 {
@@ -480,13 +597,12 @@
   <span class="c2">"statusUrl"</span>: <span class="c3">"/v1/incidents/inc_8Kd2mQ…"</span>
 }</div>
 
-          <div class="code-panel" id="panel-sign" role="tabpanel" aria-labelledby="tab-sign" hidden>
-<span class="c1">import</span> { Wallet } <span class="c1">from</span> <span class="c3">'ethers'</span>;
+<div class="code" id="panel-sign" role="tabpanel" aria-labelledby="tab-sign" hidden><span class="c1">import</span> { Wallet } <span class="c1">from</span> <span class="c3">'ethers'</span>;
 <span class="c1">import</span> { payAndRequest } <span class="c1">from</span> <span class="c3">'./x402Client.js'</span>;
 
 <span class="c1">// Quote, sign, retry — one call.</span>
 <span class="c1">const</span> result = <span class="c1">await</span> <span class="c2">payAndRequest</span>({
-  url: <span class="c3">'https://encode.agent/v1/incidents'</span>,
+  url: <span class="c3">'https://encode-api-production.up.railway.app/v1/incidents'</span>,
   body: {
     summary: <span class="c3">'Export job emits duplicate rows'</span>,
     repo: { owner: <span class="c3">'you'</span>, name: <span class="c3">'your-app'</span> },
@@ -502,150 +618,242 @@
 console.<span class="c2">log</span>(result.body.statusUrl);
 <span class="c4">→ /v1/incidents/inc_8Kd2mQ…</span></div>
 
-          <p class="panel-note">
-            The authorization is single-use and expires in 10 minutes by default. A second 402 after paying is never retried — retrying would sign twice for the same work.
-            <br><br>
-            Full walkthrough: <a href="https://github.com/greyw0rks/encode/blob/main/PAYING.md" target="_blank" rel="noopener" style="color:var(--ink);border-bottom:1px solid var(--ink-faint);">PAYING.md</a>
-          </p>
+        <p class="note">
+          The authorization is single-use and expires in 10 minutes by default. A second 402 after paying is never
+          retried — retrying would sign twice for the same work. The client is
+          <a href="https://github.com/greyw0rks/encode/blob/main/server/src/client/x402Client.js" target="_blank" rel="noopener">~200 lines with one dependency</a>;
+          full walkthrough in <a href="https://github.com/greyw0rks/encode/blob/main/PAYING.md" target="_blank" rel="noopener">PAYING.md</a>.
+        </p>
+      </div>
+    </main>
+    <!-- ================= RIGHT: verifiable status ================= -->
+    <aside class="col col-right">
+      <div class="panel" style="flex:1;">
+        <!--
+          The reference's profile block. Here it's the agent's own identity,
+          because that's the thing a payer actually needs to check before
+          signing anything: who receives the money, and on what chain.
+        -->
+        <div class="who">
+          <span class="avatar" aria-hidden="true">EN</span>
+          <span>
+            <span class="l1">Encode · agent 9794</span>
+            <span class="l2" id="net-label">Celo mainnet</span>
+          </span>
+        </div>
+
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-top:18px;">
+          <span class="eyebrow">Live status</span>
+          <span class="dot" id="live-dot" aria-hidden="true"></span>
+        </div>
+
+        <!--
+          Every row here links to the thing that proves it, or is read live from
+          the API. Claims a visitor can't check don't belong in this column.
+        -->
+        <div class="insights">
+          <div class="insight">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+            <div>
+              <span class="k">Accepting payment</span>
+              <p id="ins-ready">Checking the API…</p>
+            </div>
+          </div>
+          <div class="insight">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 4v5c0 4-3 7-7 9-4-2-7-5-7-9V7z"/></svg>
+            <div>
+              <span class="k">Identity</span>
+              <p>ERC-8004 <a href="https://www.8004scan.io/agents/celo/9794" target="_blank" rel="noopener">agent 9794</a>, minted on Celo mainnet and resolving to a registration file in the repo.</p>
+            </div>
+          </div>
+          <div class="insight">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16v12H4z"/><path d="M4 11h16"/></svg>
+            <div>
+              <span class="k">Settlement</span>
+              <p>USDC over x402 via the <a href="https://api.x402.celo.org/health" target="_blank" rel="noopener">Celo facilitator</a>. Payment lands before any work runs.</p>
+            </div>
+          </div>
+          <div class="insight">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9v4M12 17h.01"/><path d="M10.3 4.3 2.6 18a2 2 0 0 0 1.7 3h15.4a2 2 0 0 0 1.7-3L13.7 4.3a2 2 0 0 0-3.4 0Z"/></svg>
+            <div>
+              <span class="k">What Encode can't do</span>
+              <p>It can't merge and it can't deploy. The command whitelist rejects push and deploy, and the push step lives outside the model's control.</p>
+            </div>
+          </div>
+          <div class="insight" id="ins-owed-wrap" hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18M17 7H9.5a2.5 2.5 0 0 0 0 5h5a2.5 2.5 0 0 1 0 5H7"/></svg>
+            <div>
+              <span class="k">Refunds owed</span>
+              <p id="ins-owed"></p>
+            </div>
+          </div>
+        </div>
+
+        <div class="metrics">
+          <div class="metric"><div class="v" id="m-signers">—</div><div class="l">Independent signers</div></div>
+          <div class="metric"><div class="v" id="m-value">—</div><div class="l">Settled</div></div>
+          <div class="metric"><div class="v" id="m-resolved">—</div><div class="l">Incidents resolved</div></div>
+          <div class="metric" id="m-owed-card"><div class="v" id="m-owed">—</div><div class="l">Paid, not delivered</div></div>
         </div>
       </div>
-    </div>
-  </section>
+    </aside>
 
-  <footer>
-    <div class="wrap foot-row">
-      <div class="brand" style="font-size:1rem;">Encode</div>
-      <div class="foot-links"><a href="#how">How it works</a><a href="#pricing">Pricing</a><a href="#agents">Docs</a></div>
-      <div class="foot-badge">Built for Celo Agents at Work · x402 on Celo</div>
-    </div>
-  </footer>
+  </div>
+
+  <div class="foot">
+    <span>Built for Celo Agents at Work · x402 on Celo</span>
+    <span><a href="https://github.com/greyw0rks/encode" target="_blank" rel="noopener">Source</a></span>
+  </div>
 </div>
-
 <script>
 /*
- * Live ledger. Reads GET /v1/dashboard rather than shipping invented rows —
- * the whole pitch is that these are real settlements, so fabricated
- * placeholders would undercut it. An empty ledger says "no settlements yet",
- * which is honest and, before the first payer, true.
+ * Live data. Reads GET /v1/dashboard and GET /v1/status rather than shipping
+ * invented rows: the whole pitch is that these are real settlements, so a
+ * fabricated placeholder would undercut it. An empty ledger says "no
+ * settlements yet", which is honest and, before the first payer, true.
  *
- * API_BASE is same-origin by default; override with ?api= for a landing page
- * served separately from the API.
+ * API_BASE is same-origin by default; override with ?api=https://… when this
+ * page is served from somewhere other than the API.
  */
-(function () {
-  const params = new URLSearchParams(location.search);
-  const API_BASE = (params.get('api') || '').replace(/\/$/, '');
+const API_BASE = (new URLSearchParams(location.search).get('api') || '').replace(/\/$/, '');
 
-  const rows = document.getElementById('ledger-rows');
-  const statsLine = document.getElementById('ledger-stats');
+const $ = (id) => document.getElementById(id);
+const setText = (id, value) => { const el = $(id); if (el) el.textContent = String(value); };
 
-  const short = (s, head = 6, tail = 4) =>
-    !s ? '—' : s.length <= head + tail + 1 ? s : `${s.slice(0, head)}…${s.slice(-tail)}`;
+const escapeHtml = (s) =>
+  String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-  const escape = (s) =>
-    String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-
-  /*
-   * Payment is taken before the work runs, so a settled row is not proof of
-   * delivery. `interrupted` means the run was cut short by a restart and the
-   * payer holds nothing — money owed, not work done. Saying so on the row is
-   * the point of publishing the ledger at all.
-   */
-  const FLAGS = {
-    interrupted: ['owed', 'paid · not delivered'],
-    failed: ['owed', 'paid · no fix'],
-    detected: ['', 'in progress'],
-    diagnosing: ['', 'in progress'],
-    fix_drafted: ['', 'in progress'],
-  };
-
-  function flag(row) {
-    const entry = FLAGS[row.status];
-    if (!entry) return '';
-    const [kind, label] = entry;
-    return ` <span class="row-flag${kind ? ` ${kind}` : ''}">${escape(label)}</span>`;
-  }
-
-  function render(data) {
-    // Only settled rows belong in a settlement ledger.
-    const settled = (data.recent || []).filter((r) => r.txHash && r.amount);
-
-    if (settled.length === 0) {
-      rows.innerHTML =
-        '<tr><td colspan="4" class="mono" style="color:var(--ink-faint);">No settlements yet — this table fills in as real payments land.</td></tr>';
-    } else {
-      rows.innerHTML = settled
-        .map(
-          (r) => `<tr>
-            <td>${escape(r.summary)}${
-              r.prUrl
-                ? ` <a href="${escape(r.prUrl)}" class="tx-link" target="_blank" rel="noopener">PR ↗</a>`
-                : ''
-            }${flag(r)}</td>
-            <td class="mono">${escape(short(r.payer, 4, 4))}</td>
-            <td><a href="https://celoscan.io/tx/${encodeURIComponent(r.txHash)}" class="tx-link" target="_blank" rel="noopener">${escape(short(r.txHash))} ↗</a></td>
-            <td class="amt">$${escape(Number(r.amount).toFixed(2))}</td>
-          </tr>`
-        )
-        .join('');
-    }
-
-    const s = data.stats || {};
-    const confirmed = settled.filter((r) => r.verificationDepth === 'repro-confirmed').length;
-
-    setStat('stat-signers', s.uniqueSigners ?? 0);
-    setStat('stat-value', `$${s.totalValueProcessed ?? '0.00'}`);
-    setStat('stat-resolved', s.resolved ?? 0);
-    setStat('stat-confirmed', confirmed);
-
-    // Said plainly rather than implied: "resolved" and "the original failure
-    // was proven gone" are different claims, and only the second is strong.
-    let note =
-      'Repro-confirmed means the reported failure was reproduced before the patch and no longer reproduces after it. ' +
-      'Incidents verified by test suite alone are counted as resolved but not confirmed.';
-
-    // Surfaced here rather than only in the row flags: a visitor deciding
-    // whether to pay should be able to see how often paying didn't get them a
-    // fix, without auditing the table for it.
-    if (s.unfulfilledPaid > 0) {
-      note +=
-        ` ${s.unfulfilledPaid} paid incident${s.unfulfilledPaid === 1 ? '' : 's'} ` +
-        'did not result in a delivered fix — flagged in the table. Payment is taken up front, so those are refunds owed, not work done.';
-    }
-
-    statsLine.textContent = note;
-  }
-
-  function setStat(id, value) {
-    const el = document.getElementById(id);
-    if (el) el.textContent = String(value);
-  }
-
-  fetch(`${API_BASE}/v1/dashboard`)
-    .then((res) => (res.ok ? res.json() : Promise.reject(new Error(res.status))))
-    .then(render)
-    .catch(() => {
-      rows.innerHTML =
-        '<tr><td colspan="4" class="mono" style="color:var(--ink-faint);">Ledger unavailable — the API isn\'t reachable from here.</td></tr>';
-      statsLine.textContent = '';
-      for (const id of ['stat-signers', 'stat-value', 'stat-resolved', 'stat-confirmed']) setStat(id, '—');
-    });
-})();
+const short = (s, head = 6, tail = 4) =>
+  !s ? '—' : s.length <= head + tail + 1 ? s : `${s.slice(0, head)}…${s.slice(-tail)}`;
 
 /*
- * Code panel tabs. Progressive enhancement: with JS off both panels are in
- * the DOM and the second is only `hidden`, so the content is still reachable.
+ * Payment is taken before the work runs, so a settled row is not proof of
+ * delivery. `interrupted` means the run was cut short by a restart and the
+ * payer holds nothing — money owed, not work done. Saying so on the row is
+ * most of the reason to publish a ledger at all.
  */
-(function () {
-  const tabs = [...document.querySelectorAll('.code-tab')];
+const FLAGS = {
+  interrupted: ['owed', 'paid · not delivered'],
+  failed: ['owed', 'paid · no fix'],
+  detected: ['', 'in progress'],
+  diagnosing: ['', 'in progress'],
+  fix_drafted: ['', 'in progress'],
+};
+
+function flag(row) {
+  const entry = FLAGS[row.status];
+  if (!entry) return '';
+  const [kind, label] = entry;
+  return ` <span class="row-flag${kind ? ` ${kind}` : ''}">${escapeHtml(label)}</span>`;
+}
+
+function renderLedger(data) {
+  const rows = $('ledger-rows');
+  const note = $('ledger-note');
+  // Only settled rows belong in a settlement ledger.
+  const settled = (data.recent || []).filter((r) => r.txHash && r.amount);
+
+  rows.innerHTML =
+    settled.length === 0
+      ? '<tr><td colspan="4" class="mono" style="color:var(--faint);">No settlements yet — this fills in as real payments land.</td></tr>'
+      : settled
+          .map(
+            (r) => `<tr>
+              <td>${escapeHtml(r.summary)}${
+                r.prUrl ? ` <a href="${escapeHtml(r.prUrl)}" class="tx-link" target="_blank" rel="noopener">PR ↗</a>` : ''
+              }${flag(r)}</td>
+              <td class="mono">${escapeHtml(short(r.payer, 4, 4))}</td>
+              <td><a href="https://celoscan.io/tx/${encodeURIComponent(r.txHash)}" class="tx-link" target="_blank" rel="noopener">${escapeHtml(short(r.txHash))} ↗</a></td>
+              <td class="amt">$${escapeHtml(Number(r.amount).toFixed(2))}</td>
+            </tr>`
+          )
+          .join('');
+
+  const s = data.stats || {};
+  const confirmed = settled.filter((r) => r.verificationDepth === 'repro-confirmed').length;
+
+  setText('m-signers', s.uniqueSigners ?? 0);
+  setText('m-value', `$${s.totalValueProcessed ?? '0.00'}`);
+  setText('m-resolved', s.resolved ?? 0);
+  setText('m-owed', s.unfulfilledPaid ?? 0);
+
+  // Said plainly rather than implied: "resolved" and "the original failure was
+  // proven gone" are different claims, and only the second is strong.
+  let text =
+    settled.length === 0
+      ? 'When rows appear, "repro-confirmed" will mean the reported failure was reproduced before the patch and ' +
+        'no longer reproduces after it. Verified by test suite alone counts as resolved but not confirmed.'
+      : `${confirmed} of ${settled.length} settled incident${settled.length === 1 ? ' is' : 's are'} repro-confirmed — ` +
+        'the reported failure was reproduced before the patch and no longer reproduces after it. ' +
+        'Verified by test suite alone counts as resolved but not confirmed.';
+
+  const owed = Number(s.unfulfilledPaid || 0);
+  if (owed > 0) {
+    $('m-owed-card').classList.add('flag');
+    $('ins-owed-wrap').hidden = false;
+    setText(
+      'ins-owed',
+      `${owed} paid incident${owed === 1 ? '' : 's'} never produced a delivered fix. Payment is taken up front, so ${
+        owed === 1 ? 'that is a refund' : 'those are refunds'
+      } owed — there is no automatic refund path yet.`
+    );
+    text += ` ${owed} row${owed === 1 ? ' is' : 's are'} flagged as paid and not delivered.`;
+  }
+  note.textContent = text;
+}
+
+function renderStatus(status) {
+  const net = status?.payment?.network;
+  if (net) setText('net-label', net === 'mainnet' ? 'Celo mainnet' : `Celo ${net}`);
+
+  const ready = status?.canTakeRealPayments === true;
+  const blockers = status?.blockers || [];
+  setText(
+    'ins-ready',
+    ready
+      ? `Yes — quoting and settling on ${net === 'mainnet' ? 'Celo mainnet' : net}. Settlement key and attribution are on file.`
+      : `Not right now: ${blockers[0] || 'the API reports it cannot take payments'}.`
+  );
+  // Green would be a lie while anything is blocking; the accent dot is the
+  // page's only status colour, so it just gets dimmed instead.
+  $('live-dot').style.opacity = ready ? '1' : '0.35';
+}
+
+fetch(`${API_BASE}/v1/dashboard`)
+  .then((res) => (res.ok ? res.json() : Promise.reject(new Error(res.status))))
+  .then(renderLedger)
+  .catch(() => {
+    $('ledger-rows').innerHTML =
+      '<tr><td colspan="4" class="mono" style="color:var(--faint);">Ledger unavailable — the API isn\'t reachable from here.</td></tr>';
+    $('ledger-note').textContent = '';
+    for (const id of ['m-signers', 'm-value', 'm-resolved', 'm-owed']) setText(id, '—');
+  });
+
+fetch(`${API_BASE}/v1/status`)
+  .then((res) => (res.ok ? res.json() : Promise.reject(new Error(res.status))))
+  .then(renderStatus)
+  .catch(() => {
+    setText('ins-ready', 'Unknown — the status endpoint isn\'t reachable from here.');
+    $('live-dot').style.opacity = '0.35';
+  });
+
+/*
+ * Tablists: the pricing tiers and the two code panels. Progressive
+ * enhancement — with JS off every panel is in the DOM and only `hidden`, so
+ * nothing here is the only way to reach the content.
+ */
+function wireTabs(selector) {
+  const tabs = [...document.querySelectorAll(selector)];
   if (tabs.length === 0) return;
 
-  function select(tab) {
+  const select = (tab) => {
     for (const other of tabs) {
       const isTarget = other === tab;
       other.setAttribute('aria-selected', String(isTarget));
-      document.getElementById(other.getAttribute('aria-controls')).hidden = !isTarget;
+      const panel = document.getElementById(other.getAttribute('aria-controls'));
+      if (panel) panel.hidden = !isTarget;
     }
-  }
+  };
 
   for (const tab of tabs) {
     tab.addEventListener('click', () => select(tab));
@@ -657,8 +865,10 @@ console.<span class="c2">log</span>(result.body.statusUrl);
       next.focus();
     });
   }
-})();
-</script>
+}
 
+wireTabs('.toggle button');
+wireTabs('.tab');
+</script>
 </body>
 </html>
