@@ -17,3 +17,17 @@ data/
 *.db
 *.db-wal
 *.db-shm
+
+# Secrets. `everything encode.txt` holds a live agent-wallet private key, the
+# X402 settlement key and a GitHub PAT. It is untracked by luck rather than by
+# design — it happened to be created after the last `git add -A`. Anything
+# named like a secret belongs here, including files added while working.
+everything encode.txt
+*.env
+*.env.*
+!*.env.example
+*secret*
+*secrets*
+*credentials*
+*.privatekey
+*.pem
