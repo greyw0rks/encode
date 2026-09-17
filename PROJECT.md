@@ -26,7 +26,8 @@ Not "the code runs." Specifically:
 1. A real, independent wallet (not ours, pre-existing Celo history) pays Encode for a real incident on a real repo, over x402. "Pays" means `POST /settle` returned a transaction — a verified-but-unsettled authorization is not a payment. Settlement is credited to Encode via the registered agent wallet, since a facilitator-relayed transaction can't carry the attribution tag.
 2. Encode's diagnosis is correct enough that the resulting PR is mergeable, not just "technically opened."
 3. The dashboard (`GET /v1/dashboard`) truthfully shows `uniqueSigners` — distinct signers gate every track that counts anything. Test and dry-run payers are excluded from it.
-4. Submission is filed through the `celobuilders` skill before Sept 14, 09:00 UTC, with the repo public and resolving.
+4. Submission is filed through the `celobuilders` skill before **Sept 21, 09:00 UTC**, with the repo public and resolving. *Done — published 2026-09-17T23:04Z.*
+   - The date was wrong in this file and three others until 2026-09-18: they all said Sept 14. The live value is `submissionDeadline: "2026-09-21T09:00:00.000Z"` from `GET /hackathons/agents-at-work`. Nothing was missed, but a repo that is this careful about on-chain facts was confidently wrong about its own deadline, which is its own kind of lesson.
 
 ## Explicit non-goals
 

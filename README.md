@@ -1,6 +1,6 @@
 # Encode
 
-Automated incident diagnosis and fix agent. Pay per resolved incident, settled in stablecoins over x402 on Celo. Built for the Celo **Agents at Work Hackathon** (primary track: Real World Adoption; secondary: Value Moved), submissions close **Sept 14, 09:00 UTC**.
+Automated incident diagnosis and fix agent. Pay per resolved incident, settled in stablecoins over x402 on Celo. Built for the Celo **Agents at Work Hackathon** (primary track: Real World Adoption; secondary: Value Moved), submissions close **Sept 21, 09:00 UTC**.
 
 **Want to pay Encode to fix something? Start with [`PAYING.md`](PAYING.md).**
 
@@ -64,7 +64,8 @@ encode/
 
 **Not yet real:**
 
-- The celobuilders submission is a **draft**. Publishing needs the X/Twitter post URL and `celoNetwork`, before Sept 14, 09:00 UTC; drafts show on the leaderboard flagged as not eligible.
+- **The submission is published** (2026-09-17T23:04Z), as `real-world-adoption` plus a Value Moved declaration. Publishing it did not make either of the two points below less true, and it is not evidence of users: it means the entry is eligible, not that anyone has used it.
+  - The deadline is **Sept 21, 09:00 UTC**, confirmed against `GET /hackathons/agents-at-work`. Every doc in this repo said Sept 14 until 2026-09-18 — that date was simply wrong, and it is worth knowing the repo asserted it confidently in four places while the live API disagreed.
 - **No real users and no real settlement.** Every track that counts anything is gated on distinct independent signers, and Encode has none. The unexercised step is a signature from a wallet that actually holds USDC.
 - **A crash mid-incident is not refunded.** Payment is taken up front, so a run cut short by a restart leaves the payer with nothing. The record survives now — orphaned runs are marked `interrupted` at boot and `/v1/status` reports `unfulfilledPaid` — but making the payer whole is a manual step, not a code path.
 
