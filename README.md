@@ -20,9 +20,9 @@ encode/
 ├── PAYING.md                                     ← how to actually pay Encode
 ├── agent-registration.json                       ← ERC-8004 registration file
 ├── todo.md                                       ← what's left
-├── landing-page.html                             ← public marketing site
 └── server/                                       ← the actual agent + API
     ├── .env.example
+    ├── public/index.html                         ← public marketing site, served at /
     ├── package.json
     ├── scripts/
     │   ├── verifyHarness.js       ← offline: verification logic vs a real failing test

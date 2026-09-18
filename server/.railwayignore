@@ -1,0 +1,14 @@
+# Railway build context. The Dockerfile only COPYs package.json,
+# package-lock.json, src/, scripts/ and docker-entrypoint.sh, so nothing here
+# changes what lands in the image — this is purely so `railway up` doesn't
+# ship a 145MB local node_modules over the wire. node_modules is rebuilt in
+# the image by `npm ci --omit=dev`.
+node_modules/
+data/
+*.db
+*.db-wal
+*.db-shm
+.env
+.env.*
+*.log
+tmp/

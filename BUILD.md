@@ -159,7 +159,7 @@ It also asserts the detail most likely to be got wrong: **USDC's EIP-712 domain 
 
 ## 7. Landing page
 
-`landing-page.html` is a static single file — no build step. It reads `GET /v1/dashboard` and `GET /v1/status` same-origin; override with `?api=https://your-api` when serving it separately (which is the normal case, and why the API sets permissive CORS on the read endpoints).
+`server/public/index.html` is a static single file — no build step. `src/index.js` mounts it at `/`, and it reads `GET /v1/dashboard` and `GET /v1/status` same-origin, so on the live deploy the demo URL and the API URL are one origin and no `?api=` override is needed. Override with `?api=https://your-api` if it's ever served separately; the API keeps permissive CORS on the read endpoints so that still works.
 
 Built to a supplied reference design: three-column workspace, bone canvas, off-white nested panels, one orange accent, Instrument Serif display. **Depth comes from surface separation and 1px hairlines — there are no drop shadows on purpose.** Adding one back is what makes it look like every other dashboard.
 

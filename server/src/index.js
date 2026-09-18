@@ -1,4 +1,6 @@
 import './config/env.js';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import express from 'express';
 import incidentsRouter from './routes/incidents.js';
 import dashboardRouter from './dashboard/routes.js';
@@ -6,6 +8,11 @@ import { providerSummary } from './llm/provider.js';
 import { paymentConfig } from './celo/paymentConfig.js';
 import { rateLimit } from './middleware/rateLimit.js';
 import { reconcileInterrupted } from './store/incidentStore.js';
+
+// Resolved from this module's own location, not the process cwd: the image
+// runs with cwd=/app but a local `node src/index.js` from anywhere else would
+// otherwise mount a directory that isn't there.
+const publicDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 
 // An incident runs *after* its response is sent, so a restart mid-run leaves a
 // paid job with no process advancing it. Anything still non-terminal in the
@@ -22,9 +29,11 @@ app.disable('x-powered-by');
 
 app.use(express.json({ limit: '2mb' }));
 
-// The landing page is served from a different origin than the API, and its
-// ledger reads /v1/dashboard. A payment is signed in a script or server-side,
-// never from a browser page, so this only exists for the read endpoints.
+// The landing page is served from this same origin (see the static mount
+// below), so this is no longer load-bearing for it. It stays because the read
+// endpoints are public anyway and someone hosting the page elsewhere with
+// `?api=` should still get a working ledger. A payment is signed in a script or
+// server-side, never from a browser page, so this only ever covers reads.
 app.use((req, res, next) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Headers', 'Content-Type, X-PAYMENT, Authorization');
@@ -44,6 +53,13 @@ app.use('/v1', rateLimit({ max: 120, name: 'v1' }));
 
 app.use(incidentsRouter);
 app.use(dashboardRouter);
+
+// The marketing page, served from this origin so its ledger reads /v1/status
+// and /v1/dashboard with no `?api=` override and no second host to keep alive.
+// Mounted before the JSON 404 so a missing asset still returns the API's error
+// shape rather than express's HTML default — a judge hitting a typo'd path
+// should get an error that looks like this service, not like a misconfigured one.
+app.use(express.static(publicDir));
 
 app.use((req, res) => res.status(404).json({ error: 'not_found', path: req.path }));
 

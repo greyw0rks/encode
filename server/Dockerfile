@@ -17,6 +17,7 @@ RUN npm ci --omit=dev
 
 COPY src ./src
 COPY scripts ./scripts
+COPY public ./public
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
 # The server runs as a non-root user. The Coding Agent executes model-chosen
