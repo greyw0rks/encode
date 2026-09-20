@@ -6,6 +6,7 @@ import { dirname, join } from 'path';
 /**
  * Incident lifecycle: detected -> diagnosing -> fix_drafted -> resolved -> failed
  *                     (any non-terminal status -> interrupted, on restart)
+ *                     recovered: imported from chain state, no record behind it
  *
  * Backed by SQLite, not a Map, because settlements are real money and the
  * record of them was previously only in RAM: a redeploy erased the evidence
@@ -185,6 +186,105 @@ export function reconcileInterrupted() {
     );
   }
   return stale.map((i) => i.id);
+}
+
+/**
+ * Settlements that survive only as chain state.
+ *
+ * These were paid to the earlier Encode deployment — `encode-api-production`,
+ * the service the Vercel page used to point at. That app is gone (`Application
+ * not found`) and so is its volume, so the incident records it wrote do not
+ * exist anywhere: no summary, no diagnosis, no verification, and nothing that
+ * says what the payer received for the money.
+ *
+ * The settlements themselves are still checkable by anyone, because they are
+ * on Celo. So they are imported as `recovered`, a status that claims exactly
+ * what the evidence supports and refuses to be read as anything else:
+ *
+ *   - Counted in `uniqueSigners` / `settledPayments` / `totalValueProcessed`.
+ *     The USDC moved from a wallet Encode does not control, so it is a real
+ *     independent payment, and dropping it would understate the one number
+ *     every track is judged on.
+ *   - Never counted as `resolved` — no record says the work landed.
+ *   - Never counted as `unfulfilledPaid` either. "Paid, not delivered" is a
+ *     debt, and a row with no record behind it cannot establish that nothing
+ *     was delivered. Guessing either way would put a number on the ledger
+ *     that no evidence stands behind.
+ *
+ * Append-only, and each entry is keyed by its transaction hash: re-running the
+ * import is a no-op, so a redeploy can't duplicate a payment.
+ */
+const RECOVERED_SETTLEMENTS = [
+  {
+    // $0.50 USDC, the fix tier — the price Encode charged from 2026-08-30.
+    txHash: '0x1db5da61df9f00233cfce3325c251e59d0604b0dc43b4d02a984b353d65714af',
+    payer: '0x22bF1B846A91c81c24B8eD42544D6A6B749d21dF',
+    amount: '0.50',
+    block: 76394934,
+    settledAt: '2026-09-01T20:48:12.000Z',
+    summary: 'Settlement recovered from Celo — the incident record did not survive with it',
+  },
+];
+
+/** Deterministic from the tx hash, so the same payment can never land twice. */
+const recoveredId = (txHash) => `inc_recov_${txHash.slice(2, 10)}`;
+
+export function backfillRecoveredSettlements() {
+  const imported = [];
+
+  for (const settlement of RECOVERED_SETTLEMENTS) {
+    const id = recoveredId(settlement.txHash);
+    if (getIncident(id)) continue;
+
+    const now = new Date().toISOString();
+    write({
+      id,
+      summary: settlement.summary,
+      // Everything below is unknown rather than absent: null says "not
+      // recorded", where a plausible guess would say "true" and be wrong.
+      repo: null,
+      logsRef: null,
+      tier: null,
+      status: 'recovered',
+      payer: settlement.payer,
+      settlement: {
+        txHash: settlement.txHash,
+        amount: settlement.amount,
+        asset: 'USDC',
+        network: 'celo',
+        // Not the payout address, so not self-funded — but see the note on
+        // `isIndependent`: this is a claim about who paid, nothing more.
+        selfFunded: false,
+        settledAt: settlement.settledAt,
+      },
+      attribution: null,
+      diagnosis: null,
+      repairPlan: null,
+      baseCommit: null,
+      patch: null,
+      pr: null,
+      verification: null,
+      recovered: {
+        source: 'celo',
+        block: settlement.block,
+        recoveredAt: now,
+        incidentRecordLost: true,
+      },
+      // Dated when the money moved, not when it was recovered, so the ledger
+      // orders by when each payment actually happened.
+      createdAt: settlement.settledAt,
+      updatedAt: now,
+    });
+    imported.push(id);
+  }
+
+  if (imported.length > 0) {
+    console.warn(
+      `[store] imported ${imported.length} recovered settlement(s) from Celo — ` +
+        `paid, but with no surviving record of what was delivered: ${imported.join(', ')}`
+    );
+  }
+  return imported;
 }
 
 /**

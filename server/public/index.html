@@ -731,10 +731,17 @@ const short = (s, head = 6, tail = 4) =>
  * delivery. `interrupted` means the run was cut short by a restart and the
  * payer holds nothing — money owed, not work done. Saying so on the row is
  * most of the reason to publish a ledger at all.
+ *
+ * `recovered` is the one row that settles nothing: the payment is real and on
+ * Celo, but the incident record it was attached to is gone, so what the payer
+ * received is unknown. It gets a flag rather than an assumed outcome —
+ * "resolved" would claim work that isn't evidenced, and "not delivered" would
+ * claim a debt that isn't evidenced either.
  */
 const FLAGS = {
   interrupted: ['owed', 'paid · not delivered'],
   failed: ['owed', 'paid · no fix'],
+  recovered: ['', 'record lost · settled on-chain'],
   detected: ['', 'in progress'],
   diagnosing: ['', 'in progress'],
   fix_drafted: ['', 'in progress'],
@@ -786,6 +793,18 @@ function renderLedger(data) {
       : `${confirmed} of ${settled.length} settled incident${settled.length === 1 ? ' is' : 's are'} repro-confirmed — ` +
         'the reported failure was reproduced before the patch and no longer reproduces after it. ' +
         'Verified by test suite alone counts as resolved but not confirmed.';
+
+  // The counts above would otherwise read as a verdict on every row. A
+  // recovered row has no recorded outcome at all, so it is named rather than
+  // left to be inferred from arithmetic that can't speak to it.
+  const recovered = settled.filter((r) => r.status === 'recovered').length;
+  if (recovered > 0) {
+    text +=
+      ` ${recovered} of them ${recovered === 1 ? 'is' : 'are'} a settlement recovered from Celo: ` +
+      'the payment is real and checkable, but the incident record it belonged to did not survive an earlier ' +
+      'deployment, so there is no evidence either way about what was delivered — which is why it is counted ' +
+      'as neither resolved nor unpaid.';
+  }
 
   const owed = Number(s.unfulfilledPaid || 0);
   if (owed > 0) {
