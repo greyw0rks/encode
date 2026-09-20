@@ -32,6 +32,7 @@ encode/
     │   ├── probeToolUse.js        ← cheap check: does this endpoint do tool use at all?
     │   ├── registerAgentIdentity.js ← mints the ERC-8004 identity (real mainnet tx)
     │   ├── payDemo.js             ← what a payer runs: quote, then optionally pay
+    │   ├── deliveryHarness.js     ← how a fix ships (offline; --live forks, --live-pr opens a PR)
     │   ├── dryRun.js              ← full pipeline, LLM calls mocked
     │   └── liveRun.js             ← full pipeline, real LLM calls
     └── src/
@@ -43,7 +44,7 @@ encode/
         ├── dashboard/routes.js
         ├── llm/provider.js
         ├── middleware/     (auth.js, x402.js)
-        ├── repo/clone.js
+        ├── repo/           (clone.js, delivery.js)
         ├── routes/incidents.js
         ├── store/incidentStore.js
         └── verification/   (verify.js, openPR.js)

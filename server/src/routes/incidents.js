@@ -8,6 +8,7 @@ import { verifyFix } from '../verification/verify.js';
 import { openPullRequest } from '../verification/openPR.js';
 import { attributionRecord } from '../celo/attribution.js';
 import { cloneRepo, getRepoTree, getHeadCommit, cleanupRepo, repoGit } from '../repo/clone.js';
+import { resolveDelivery } from '../repo/delivery.js';
 import { publicIncident } from './publicView.js';
 
 const router = Router();
@@ -87,6 +88,20 @@ async function runIncident(id) {
     return;
   }
 
+  // Settle how the fix will reach the repo before doing any of the expensive
+  // work. A repo Encode can neither push to nor fork is undeliverable, and
+  // finding that out here costs one API call — finding it out at the push step
+  // costs a patch, a verification run, and a target-repo `npm install`, all of
+  // which the payer has already paid for.
+  let delivery;
+  try {
+    delivery = await resolveDelivery({ owner: incident.repo.owner, repo: incident.repo.name });
+  } catch (err) {
+    updateIncident(id, { status: 'failed', error: `delivery_unavailable: ${err.message}` });
+    await cleanupRepo(repoLocalPath);
+    return;
+  }
+
   updateIncident(id, { status: 'fix_drafted', repairPlan: diagnosis.repairPlan });
 
   const fix = await draftFix({
@@ -112,8 +127,14 @@ async function runIncident(id) {
   }
 
   // PR must be opened from a branch GitHub can see — push before opening it.
+  // When Encode has no push access to the target repo, that branch goes to
+  // Encode's own fork instead, and the PR is opened across repos. The remote
+  // is added here rather than at clone time because triage never gets this
+  // far, and forking on a diagnosis-only run would be a pure side effect.
   try {
-    await repoGit(repoLocalPath).push('origin', fix.branch, ['--set-upstream']);
+    const git = repoGit(repoLocalPath);
+    if (delivery.cloneUrl) await git.addRemote(delivery.remoteName, delivery.cloneUrl);
+    await git.push(delivery.remoteName, fix.branch, ['--set-upstream']);
   } catch (err) {
     updateIncident(id, { status: 'failed', error: `push_failed: ${err.message}` });
     await cleanupRepo(repoLocalPath);
@@ -124,6 +145,8 @@ async function runIncident(id) {
     owner: incident.repo.owner,
     repo: incident.repo.name,
     branch: fix.branch,
+    headOwner: delivery.headOwner,
+    base: delivery.defaultBranch,
     title: `Encode fix: ${incident.summary}`,
     body: fix.prDescription ?? 'Automated fix from Encode. See verification report for details.',
   });

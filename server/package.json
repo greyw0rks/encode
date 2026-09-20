@@ -7,9 +7,10 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
-    "test": "node scripts/verifyHarness.js && node scripts/toolLoopHarness.js",
+    "test": "node scripts/verifyHarness.js && node scripts/toolLoopHarness.js && node scripts/deliveryHarness.js",
     "test:verify": "node scripts/verifyHarness.js",
     "test:loop": "node scripts/toolLoopHarness.js",
+    "test:delivery": "node scripts/deliveryHarness.js",
     "test:client": "node scripts/payClientHarness.js",
     "test:facilitator": "node scripts/facilitatorHarness.js",
     "test:probe": "node scripts/probeToolUse.js",

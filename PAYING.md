@@ -23,10 +23,19 @@ Two honest caveats before you spend anything:
   it can clone, a test suite, and ideally a command that reproduces the bug.
   If your site is broken but the cause isn't in a repo Encode can read, it
   will diagnose from your description and logs alone — much weaker.
-- **`fix` needs write access to open a PR.** Today that means Encode's
-  operator holds a token with access to your repo. For a repo you don't
-  control that's a real trust ask, and the honest answer is: use `triage`, or
-  fork, or wait for the GitHub App flow (see `todo.md`).
+- **On a repo Encode can't write to, `fix` is delivered from a fork.** If
+  Encode's token has no push access to your repo, it forks it into its own
+  account, pushes the patch there, and opens a cross-repo PR back into yours.
+  You are not asked to grant anything, which is the whole point — no inbound
+  request, no collaborator grant. Two consequences worth knowing before you
+  pay: the PR arrives from `encodebot-ai:<branch>` rather than a branch inside
+  your repo, so your own CI will not run on it until you approve it and it
+  cannot read your repo secrets. Encode's `repro-confirmed` verdict is
+  unaffected by that, because Encode runs your repro command itself rather
+  than reading your CI's result. Forks are created and not cleaned up.
+  **A private repo cannot be forked**, so there `fix` still needs Encode's
+  account added as a collaborator with write access — the GitHub App flow in
+  `todo.md` is the intended answer for that case.
 
 ## What you need
 
