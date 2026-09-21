@@ -45,10 +45,9 @@ export default async function LedgerPage() {
           <Panel>
             <SectionHead title="The numbers, and what they exclude." eyebrow="counts" />
             {/* `—` rather than `0` when the read failed: a zero reads as a fact. */}
-            <div className="mt-4 grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+            <div className="mt-4 grid grid-cols-2 gap-2.5 lg:grid-cols-3">
+              <Metric value={stats?.settledPayments ?? '—'} label="Settlements" />
               <Metric value={stats?.uniqueSigners ?? '—'} label="Independent signers" />
-              <Metric value={stats ? `$${stats.totalValueProcessed}` : '—'} label="Settled value" />
-              <Metric value={stats?.resolved ?? '—'} label="Incidents resolved" />
               <Metric
                 value={stats?.unfulfilledPaid ?? '—'}
                 label="Paid, not delivered"

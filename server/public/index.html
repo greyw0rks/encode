@@ -691,9 +691,8 @@ console.<span class="c2">log</span>(result.body.statusUrl);
         </div>
 
         <div class="metrics">
+          <div class="metric"><div class="v" id="m-settlements">—</div><div class="l">Settlements</div></div>
           <div class="metric"><div class="v" id="m-signers">—</div><div class="l">Independent signers</div></div>
-          <div class="metric"><div class="v" id="m-value">—</div><div class="l">Settled</div></div>
-          <div class="metric"><div class="v" id="m-resolved">—</div><div class="l">Incidents resolved</div></div>
           <div class="metric" id="m-owed-card"><div class="v" id="m-owed">—</div><div class="l">Paid, not delivered</div></div>
         </div>
       </div>
@@ -780,9 +779,8 @@ function renderLedger(data) {
   const s = data.stats || {};
   const confirmed = settled.filter((r) => r.verificationDepth === 'repro-confirmed').length;
 
+  setText('m-settlements', s.settledPayments ?? 0);
   setText('m-signers', s.uniqueSigners ?? 0);
-  setText('m-value', `$${s.totalValueProcessed ?? '0.00'}`);
-  setText('m-resolved', s.resolved ?? 0);
   setText('m-owed', s.unfulfilledPaid ?? 0);
 
   // Said plainly rather than implied: "resolved" and "the original failure was
@@ -846,7 +844,7 @@ fetch(`${API_BASE}/v1/dashboard`)
     $('ledger-rows').innerHTML =
       '<tr><td colspan="4" class="mono" style="color:var(--faint);">Ledger unavailable — the API isn\'t reachable from here.</td></tr>';
     $('ledger-note').textContent = '';
-    for (const id of ['m-signers', 'm-value', 'm-resolved', 'm-owed']) setText(id, '—');
+    for (const id of ['m-settlements', 'm-signers', 'm-owed']) setText(id, '—');
   });
 
 fetch(`${API_BASE}/v1/status`)

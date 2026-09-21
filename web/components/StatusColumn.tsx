@@ -86,9 +86,8 @@ export function StatusColumn({
        * couldn't ask".
        */}
       <div className="mt-4 grid grid-cols-2 gap-2.5">
+        <Metric value={stats?.settledPayments ?? '—'} label="Settlements" />
         <Metric value={stats?.uniqueSigners ?? '—'} label="Independent signers" />
-        <Metric value={stats ? `$${stats.totalValueProcessed}` : '—'} label="Settled" />
-        <Metric value={stats?.resolved ?? '—'} label="Incidents resolved" />
         <Metric value={stats?.unfulfilledPaid ?? '—'} label="Paid, not delivered" flag={owed > 0} />
       </div>
     </Panel>
