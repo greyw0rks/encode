@@ -8,7 +8,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { DocsSection } from '@/components/DocsSection';
 import { Code } from '@/components/Code';
 import { C, Callout, H3, LI, Lede, P, Step, Table, UL } from '@/components/prose';
-import { AGENT, CELO_CHAIN_ID, PROOF, TIERS, USDC } from '@/lib/facts';
+import { AGENT, API_URL, CELO_CHAIN_ID, PROOF, TIERS, USDC } from '@/lib/facts';
 
 export const metadata: Metadata = {
   title: 'Paying Encode',
@@ -21,7 +21,9 @@ const [triage, fix] = TIERS;
 /*
  * The quote output is interpolated from `lib/facts` rather than transcribed, so
  * the address a reader is told to check against can't drift from the one the
- * rest of the site publishes.
+ * rest of the site publishes. Same for the API URL: every command on this page
+ * is meant to be copy-pasteable, and a command pointing at a host that no
+ * longer answers is worse than no command at all.
  */
 const QUOTE_OUTPUT = `
 [[r|402 Payment Required]]
@@ -35,7 +37,7 @@ const QUOTE_OUTPUT = `
 
 const PAY_COMMAND = `
 [[k|PAYER_PRIVATE_KEY]]=0x... npm run pay -- \\
-  --url https://encode.example/v1/incidents \\
+  --url ${API_URL}/v1/incidents \\
   --repo you/your-app \\
   --summary [[v|"Nightly export job emits duplicate rows"]] \\
   --logs [[v|"export.job: collected 27 records, 25 exist; dupes r10, r19"]] \\
@@ -108,10 +110,12 @@ export default async function PayPage() {
               </LI>
               <LI>
                 <b className="font-semibold text-ink-2">
-                  <C>fix</C> needs write access to open a PR.
+                  <C>fix</C> opens a PR. It never merges and never deploys.
                 </b>{' '}
-                Today that means Encode&apos;s operator holds a token with access to your repo. For a repo you
-                don&apos;t control that&apos;s a real trust ask, and the honest answer is: use <C>triage</C>, or fork.
+                Where Encode&apos;s token has no push access to your repo, Encode forks the repo into its own
+                account, pushes the branch there and opens a cross-repo PR back into yours — no collaborator grant,
+                nothing asked of you. A private repo cannot be forked, so there <C>fix</C> needs write access and is
+                refused up front without it.
               </LI>
             </UL>
           </Panel>
@@ -144,7 +148,7 @@ export default async function PayPage() {
             <div className="mt-5">
               <Step n={1} title="See the price, pay nothing" />
               <P>Prints the quote and stops. Safe to run against production; it signs nothing.</P>
-              <Code>{`[[k|cd]] server\nnpm run pay -- --url https://encode.example/v1/incidents --tier fix`}</Code>
+              <Code>{`[[k|cd]] server\nnpm run pay -- --url ${API_URL}/v1/incidents --tier fix`}</Code>
               <Code>{QUOTE_OUTPUT}</Code>
               <Callout tone="warn">
                 Check <C>Pay to</C> against the address Encode publishes:{' '}
@@ -201,7 +205,7 @@ export default async function PayPage() {
               </P>
 
               <Step n={4} title="Watch it work" />
-              <Code>{'curl https://encode.example/v1/incidents/inc_8Kd2mQ… | jq'}</Code>
+              <Code>{`curl ${API_URL}/v1/incidents/inc_8Kd2mQ… | jq`}</Code>
               <P>
                 Status moves <C>detected → diagnosing → fix_drafted → resolved</C> (or <C>failed</C>). Read these
                 fields when it lands:
@@ -262,7 +266,7 @@ export default async function PayPage() {
             />
 
             <H3>Verify Encode is real before paying it</H3>
-            <Code>{"curl https://encode.example/v1/status | jq [[v|'{canTakeRealPayments, blockers}']]"}</Code>
+            <Code>{`curl ${API_URL}/v1/status | jq [[v|'{canTakeRealPayments, blockers}']]`}</Code>
             <P>
               <C>canTakeRealPayments: false</C> means Encode itself knows it can&apos;t complete a settlement, and{' '}
               <C>blockers</C> says why. Don&apos;t pay a server that reports that — the right column of this page

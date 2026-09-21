@@ -436,8 +436,9 @@
             <span class="y">now</span>
           </div>
           <p class="entry">
-            <b>No independent payer yet.</b> The ledger below is empty and says so. It fills in from
-            <span class="m">GET /v1/dashboard</span> as real settlements land.
+            <b>Independent wallets are paying.</b> The rows below are read live from
+            <span class="m">GET /v1/dashboard</span> and count only wallets Encode doesn't control. Follow any row
+            to Celoscan rather than taking the totals on faith.
           </p>
         </div>
       </div>
@@ -602,7 +603,7 @@
 
 <span class="c1">// Quote, sign, retry — one call.</span>
 <span class="c1">const</span> result = <span class="c1">await</span> <span class="c2">payAndRequest</span>({
-  url: <span class="c3">'https://encode-api-production.up.railway.app/v1/incidents'</span>,
+  url: <span class="c3">'https://encode-production.up.railway.app/v1/incidents'</span>,
   body: {
     summary: <span class="c3">'Export job emits duplicate rows'</span>,
     repo: { owner: <span class="c3">'you'</span>, name: <span class="c3">'your-app'</span> },

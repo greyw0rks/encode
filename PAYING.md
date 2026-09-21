@@ -52,7 +52,7 @@ decimals — `$0.50` is `500000` base units).
 
 ```bash
 cd server
-npm run pay -- --url https://encode.example/v1/incidents --tier fix
+npm run pay -- --url https://encode-production.up.railway.app/v1/incidents --tier fix
 ```
 
 Prints the quote and stops. Safe to run against production; it signs nothing.
@@ -93,7 +93,7 @@ passes," which is weaker and reported as such rather than dressed up.
 
 ```bash
 PAYER_PRIVATE_KEY=0x... npm run pay -- \
-  --url https://encode.example/v1/incidents \
+  --url https://encode-production.up.railway.app/v1/incidents \
   --repo you/your-app \
   --summary "Nightly export job emits duplicate rows" \
   --logs "export.job: collected 27 records, 25 exist; dupes r10, r19" \
@@ -122,7 +122,7 @@ You get back a job id:
 ## Step 4 — watch it work
 
 ```bash
-curl https://encode.example/v1/incidents/inc_8Kd2mQ… | jq
+curl https://encode-production.up.railway.app/v1/incidents/inc_8Kd2mQ… | jq
 ```
 
 Status moves `detected → diagnosing → fix_drafted → resolved` (or `failed`).
@@ -176,7 +176,7 @@ import { Wallet } from 'ethers';
 import { payAndRequest } from './x402Client.js';
 
 const result = await payAndRequest({
-  url: 'https://encode.example/v1/incidents',
+  url: 'https://encode-production.up.railway.app/v1/incidents',
   body: {
     summary: 'Checkout returns 500 for guest users',
     repo: { owner: 'you', name: 'your-app' },
@@ -207,7 +207,7 @@ Only the second is worth retrying later.
 ## Verify Encode is real before paying it
 
 ```bash
-curl https://encode.example/v1/status | jq '{canTakeRealPayments, blockers, attribution}'
+curl https://encode-production.up.railway.app/v1/status | jq '{canTakeRealPayments, blockers, attribution}'
 ```
 
 `canTakeRealPayments: false` means Encode itself knows it can't complete a

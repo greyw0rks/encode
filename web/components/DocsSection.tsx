@@ -1,7 +1,7 @@
 import { Note, Panel, SectionHead, TextLink } from './primitives';
 import { Code } from './Code';
 import { Tabs } from './Tabs';
-import { AGENT, CELO_CHAIN_ID, PROOF, TIERS, USDC } from '@/lib/facts';
+import { AGENT, API_URL, CELO_CHAIN_ID, PROOF, TIERS, USDC } from '@/lib/facts';
 
 const [, fix] = TIERS;
 
@@ -53,7 +53,7 @@ const SIGN_EXAMPLE = `
 
 [[k|// Quote, sign, retry — one call.]]
 [[k|const]] result = [[k|await]] [[n|payAndRequest]]({
-  url: [[v|'https://encode-api-production.up.railway.app/v1/incidents']],
+  url: [[v|'${API_URL}/v1/incidents']],
   body: {
     summary: [[v|'Export job emits duplicate rows']],
     repo: { owner: [[v|'you']], name: [[v|'your-app']] },
