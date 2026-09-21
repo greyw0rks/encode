@@ -20,7 +20,7 @@ encode/
 ├── PAYING.md                                     ← how to actually pay Encode
 ├── agent-registration.json                       ← ERC-8004 registration file
 ├── todo.md                                       ← what's left
-└── server/                                       ← the actual agent + API
+├── server/                                       ← the actual agent + API
     ├── .env.example
     ├── public/index.html                         ← public marketing site, served at /
     ├── package.json
@@ -48,7 +48,19 @@ encode/
         ├── routes/incidents.js
         ├── store/incidentStore.js
         └── verification/   (verify.js, openPR.js)
+└── web/                                          ← the Vercel landing page (Next.js), encode-zeta.vercel.app
+    ├── app/            (page.tsx, ledger/, incidents/[id]/, pay/, how-it-works/)
+    ├── components/     (Timeline, Ledger, StatusColumn, Pricing, …)
+    └── lib/            (api.ts — reads /v1/dashboard + /v1/status)
 ```
+
+> Two front ends, deliberately: `server/public/index.html` is a single static
+> file the API serves same-origin at `/`; `web/` is the richer Next.js site on
+> Vercel. The `web/` source was recovered from Vercel build artifacts and had no
+> other copy. **Redeploy trap:** the Vercel project's production env vars are
+> empty strings, so a plain `vercel deploy --prod` ships a site whose ledger
+> reads `—`. Pass `ENCODE_API_URL` / `NEXT_PUBLIC_ENCODE_API_URL` explicitly on
+> the deploy command, verify a preview, then `vercel promote`.
 
 ## Current state
 
