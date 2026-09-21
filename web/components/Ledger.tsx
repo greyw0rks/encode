@@ -7,10 +7,17 @@ import { Note, Panel, SectionHead } from './primitives';
  * delivery. `interrupted` means the run was cut short by a restart and the payer
  * holds nothing — money owed, not work done. Saying so on the row is most of the
  * reason to publish a ledger at all.
+ *
+ * `recovered` is the one row that settles nothing: the payment is real and on
+ * Celo, but the incident record it was attached to is gone, so what the payer
+ * received is unknown. It gets a flag rather than an assumed outcome —
+ * "resolved" would claim work that isn't evidenced, and "not delivered" would
+ * claim a debt that isn't evidenced either.
  */
 const FLAGS: Partial<Record<IncidentStatus, { owed: boolean; label: string }>> = {
   interrupted: { owed: true, label: 'paid · not delivered' },
   failed: { owed: true, label: 'paid · no fix' },
+  recovered: { owed: false, label: 'record lost · settled on-chain' },
   detected: { owed: false, label: 'in progress' },
   diagnosing: { owed: false, label: 'in progress' },
   fix_drafted: { owed: false, label: 'in progress' },
@@ -96,6 +103,18 @@ function ledgerNote(rows: LedgerRow[], unfulfilled: number): string {
 
   if (unfulfilled > 0) {
     text += ` ${unfulfilled} row${unfulfilled === 1 ? ' is' : 's are'} flagged as paid and not delivered.`;
+  }
+
+  // The counts above would otherwise read as a verdict on every row. A row with
+  // no recorded outcome at all is named rather than left to be inferred from
+  // arithmetic that can't speak to it.
+  const recovered = rows.filter((row) => row.status === 'recovered').length;
+  if (recovered > 0) {
+    text +=
+      ` ${recovered} of them ${recovered === 1 ? 'is' : 'are'} a settlement recovered from Celo: ` +
+      'the payment is real and checkable, but the incident record it belonged to did not survive an earlier ' +
+      'deployment, so there is no evidence either way about what was delivered — which is why it is counted ' +
+      'as neither resolved nor unpaid.';
   }
 
   return text;

@@ -184,6 +184,19 @@ function IncidentRecord({ incident }: { incident: Incident }) {
  * first, is a debt.
  */
 function NoVerification({ incident }: { incident: Incident }) {
+  // Checked before the tier, because a recovered row has no tier to read: the
+  // record that would have said which one was bought is the thing that was
+  // lost, and inferring "fix" from a $0.50 settlement would be a guess.
+  if (incident.status === 'recovered') {
+    return (
+      <P>
+        No verification record, and none is claimed. The incident record behind this settlement did not survive an
+        earlier deployment, so there is no tier, no diagnosis and nothing that says what the payer received. The
+        payment itself is the only surviving fact about it.
+      </P>
+    );
+  }
+
   if (incident.tier === 'triage') {
     return (
       <P>
@@ -224,6 +237,14 @@ function StatusSentence({ incident }: { incident: Incident }) {
         <>
           Paid for and produced no fix. {incident.error ? <C>{incident.error}</C> : null} Payment is taken up front,
           so this is a refund owed.
+        </>
+      );
+    case 'recovered':
+      return (
+        <>
+          Paid, and settled on Celo — but the incident record behind this payment did not survive an earlier
+          deployment, so nothing is claimed about what was delivered. The transaction is real and checkable by
+          anyone; the outcome is unknown, and this is counted as neither resolved nor unpaid.
         </>
       );
     default:

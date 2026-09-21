@@ -14,6 +14,8 @@
  * or defaulting: callers have to handle `unreachable` to get at the data.
  */
 
+import { API_URL } from './facts';
+
 /** One row of the public settlement ledger — `ledgerRow()` in the API. */
 export type LedgerRow = {
   id: string;
@@ -38,7 +40,12 @@ export type IncidentStatus =
   | 'fix_drafted'
   | 'resolved'
   | 'failed'
-  | 'interrupted';
+  | 'interrupted'
+  /**
+   * A settlement imported from chain state whose incident record is gone. It
+   * asserts nothing about outcome — see the flag in `components/Ledger.tsx`.
+   */
+  | 'recovered';
 
 /**
  * `repro-confirmed` is the only strong result: the reported failure was
@@ -155,10 +162,13 @@ export type Result<T> = { ok: true; data: T } | { ok: false; reason: string };
 
 /**
  * Server-side base URL. `ENCODE_API_URL` is read at request time rather than
- * baked in, so the same image can be promoted between environments.
+ * baked in, so the same image can be promoted between environments. With
+ * neither variable set it falls back to the deployed API (`API_URL`) rather
+ * than to nothing: "no API URL configured" is a configuration failure, not a
+ * state of the world, and it must not be what a visitor sees.
  */
 export function apiBase(): string {
-  const url = process.env.ENCODE_API_URL || process.env.NEXT_PUBLIC_ENCODE_API_URL || '';
+  const url = process.env.ENCODE_API_URL || process.env.NEXT_PUBLIC_ENCODE_API_URL || API_URL;
   return url.replace(/\/$/, '');
 }
 

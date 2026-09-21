@@ -20,6 +20,18 @@ export const AGENT = {
 export const FACILITATOR_HEALTH_URL = 'https://api.x402.celo.org/health';
 
 /**
+ * Where Encode actually is. Every sample on the site that tells someone to call
+ * the API interpolates this, and `apiBase()` falls back to it — so no page can
+ * render "no API URL configured for this deployment" for want of a value.
+ *
+ * A fallback, not a hardcoding: `ENCODE_API_URL` still wins, so a preview or a
+ * local run can point somewhere else. And it makes nothing up — if the API is
+ * down, the site still says the API is unreachable rather than showing zeros,
+ * which is the distinction `lib/api.ts` exists to preserve.
+ */
+export const API_URL = 'https://encode-production.up.railway.app';
+
+/**
  * USDC on Celo mainnet, 6 decimals — so `$0.50` is `500000` base units. Kept
  * EIP-55 checksummed: ethers rejects a mis-cased address outright.
  */
