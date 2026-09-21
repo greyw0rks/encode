@@ -1,0 +1,114 @@
+@import 'tailwindcss';
+
+/*
+ * Ported from the single-file landing page, which was built to a supplied
+ * reference design: warm bone canvas, off-white interior surfaces, one
+ * electric-orange accent, editorial serif for display type.
+ *
+ * Depth comes from surface separation and 1px hairlines — there are no drop
+ * shadows anywhere on purpose. Adding one back is what makes this look like
+ * every other dashboard, so don't. `--shadow-*` is deliberately not extended
+ * here; use `border` and a surface step instead.
+ */
+@theme {
+  --color-canvas: #eae8e1; /* the page behind the frame */
+  --color-shell: #eceae2; /* floating master frame */
+  --color-surface: #f6f5f0; /* panels inside the frame */
+  --color-surface-2: #ffffff; /* cards inside panels */
+  --color-ink: #111111;
+  --color-ink-2: #2a2a28;
+  --color-muted: #6b6b66;
+
+  /* The reference implies #94928A for a de-emphasised label, which fails WCAG
+     AA at 2.6:1 on the shell. Darkened until it passes on the *lightest*
+     surface it appears over. The hierarchy between this and `muted` is carried
+     by uppercase mono + letter-spacing rather than by lightness, which is
+     where it should have been anyway. Don't lighten it back. */
+  --color-faint: #67655e;
+
+  --color-line: #d8d6ce;
+  --color-line-2: #c6c3b6;
+  --color-accent: #ff4d15;
+  /* The accent fails contrast as body text on a light surface, so text that
+     needs to be *read* in accent uses this darkened form instead. */
+  --color-accent-ink: #8a3a10;
+  --color-code-bg: #141412;
+  --color-code-fg: #e6e3da;
+
+  --font-display: var(--font-instrument-serif), Georgia, serif;
+  --font-sans: var(--font-inter), system-ui, sans-serif;
+  --font-brand: var(--font-syne), var(--font-inter), sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, monospace;
+
+  --radius-frame: 32px;
+  --radius-panel: 24px;
+  --radius-card: 16px;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    padding: 18px;
+  }
+
+  @media (max-width: 700px) {
+    body {
+      padding: 10px;
+    }
+  }
+
+  ::selection {
+    background: var(--color-accent);
+    color: #fff;
+  }
+
+  /* Focus was invisible in an early build of the original page. Everything
+     interactive needs a ring that survives a light palette. */
+  a:focus-visible,
+  button:focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer components {
+  /* The one piece of decoration carried over: the reference's trailing cursor.
+     Decorative, so it's hidden from AT, and the reduced-motion override above
+     stops it blinking. */
+  .caret {
+    display: inline-block;
+    width: 0.42em;
+    height: 0.055em;
+    margin-left: 0.12em;
+    background: var(--color-ink);
+    vertical-align: 0.12em;
+    animation: caret-blink 1.15s steps(2, start) infinite;
+  }
+
+  @keyframes caret-blink {
+    50% {
+      opacity: 0;
+    }
+  }
+}
