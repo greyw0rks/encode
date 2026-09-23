@@ -1,4 +1,4 @@
-import { llmClient, modelFor } from '../llm/provider.js';
+import { createMessage } from '../llm/provider.js';
 
 /**
  * Incident Agent
@@ -66,8 +66,7 @@ function normalize(raw) {
 }
 
 export async function diagnose({ summary, logsExcerpt, repoTree }) {
-  const response = await llmClient().messages.create({
-    model: modelFor('diagnosis'),
+  const response = await createMessage('diagnosis', {
     max_tokens: 1500,
     system: SYSTEM_PROMPT,
     messages: [
