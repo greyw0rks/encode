@@ -15,6 +15,8 @@
     "test:facilitator": "node scripts/facilitatorHarness.js",
     "test:probe": "node scripts/probeToolUse.js",
     "register:identity": "node scripts/registerAgentIdentity.js",
+    "refund": "node scripts/refund.js",
+    "refund:list": "node scripts/refund.js --list",
     "pay": "node scripts/payDemo.js",
     "dry": "node scripts/dryRun.js"
   },

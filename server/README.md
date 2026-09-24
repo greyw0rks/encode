@@ -91,6 +91,6 @@ That returns `ERC8021_ATTRIBUTION_TAG`. **Settlements are attributed by `ENCODE_
 
 ## Not built yet (explicitly out of scope for v1)
 
-- Automatic refund or retry for an incident interrupted mid-run. It's recorded as `interrupted` and counted in `unfulfilledPaid`, so the debt is visible, but nothing pays it back.
+- Automatic (in-request) refund or retry for an incident interrupted mid-run. It's recorded as `interrupted`/`failed` and counted in `unfulfilledPaid`, so the debt is visible. Paying it back is now a **manual operator step**, not an in-request code path: `npm run refund -- --incident <id>` simulates the USDC transfer from the payout wallet, `--broadcast` sends it, and it marks the incident `refunded`. `npm run refund:list` shows who is owed.
 - Escrow-style settlement (v1 is pay-then-deliver; a dispute-adjudication variant is a natural v2 if that's ever needed)
 - Private repo support beyond a bearer-token auth header (no GitHub App / fine-grained install token flow yet)

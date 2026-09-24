@@ -7,6 +7,7 @@ import { dirname, join } from 'path';
  * Incident lifecycle: detected -> diagnosing -> fix_drafted -> resolved -> failed
  *                     (any non-terminal status -> interrupted, on restart)
  *                     recovered: imported from chain state, no record behind it
+ *                     refunded: a paid-but-undelivered debt paid back on-chain
  *
  * Backed by SQLite, not a Map, because settlements are real money and the
  * record of them was previously only in RAM: a redeploy erased the evidence
@@ -287,6 +288,57 @@ export function backfillRecoveredSettlements() {
   return imported;
 }
 
+// Test/dry-run markers are deliberately excluded rather than filtered at
+// display time — see AGENTS.md on not producing numbers that could be
+// mistaken for real leaderboard activity.
+const isSettled = (i) => i.payer && !/TEST|DRYRUN|LIVERUN/i.test(i.payer) && i.settlement?.txHash;
+
+// A settlement from Encode's own payout address is a real on-chain
+// transaction and no evidence of anything — it's value moving between two
+// wallets one party controls. Counted separately, never in uniqueSigners.
+const isIndependent = (i) => isSettled(i) && !i.settlement?.selfFunded;
+
+// Paid for, terminal, and never delivered — a debt. `refunded` is excluded:
+// once the payer is made whole the debt is settled, not outstanding. A
+// `recovered` row is excluded too, deliberately: no surviving record can
+// establish that nothing was delivered (see backfillRecoveredSettlements).
+const isUnfulfilledPaid = (i) =>
+  isIndependent(i) && (i.status === 'interrupted' || i.status === 'failed') && !i.refund?.txHash;
+
+/**
+ * The payers Encode owes money: independent settlements that reached a
+ * terminal non-delivery state and have not yet been refunded. This is the
+ * list a refund run works from — never inferred from an address alone.
+ */
+export function listUnfulfilledPaid() {
+  return allIncidents().filter(isUnfulfilledPaid);
+}
+
+/**
+ * Record an outbound refund against an incident. Deliberately guarded rather
+ * than a bare updateIncident: a refund moves real USDC, so the record must
+ * refuse to (a) refund something that was never an outstanding debt, or
+ * (b) refund twice. The on-chain send has already happened by the time this
+ * is called — this is the durable memory of it, keyed so a re-run is a no-op.
+ */
+export function refundIncident(id, refund) {
+  const record = getIncident(id);
+  if (!record) return { ok: false, reason: 'not_found' };
+  if (record.refund?.txHash) return { ok: false, reason: 'already_refunded', record };
+  if (!isUnfulfilledPaid(record)) return { ok: false, reason: 'not_an_outstanding_debt', record };
+
+  return {
+    ok: true,
+    record: write(
+      Object.assign(record, {
+        status: 'refunded',
+        refund: { ...refund, at: new Date().toISOString() },
+        updatedAt: new Date().toISOString(),
+      })
+    ),
+  };
+}
+
 /**
  * Dashboard aggregates. `uniqueSigners` is the number the leaderboard actually
  * judges on, so it's counted from settled payments only — a 402'd or failed
@@ -298,16 +350,7 @@ export function getStats() {
   const resolved = all.filter((i) => i.status === 'resolved');
   const failed = all.filter((i) => i.status === 'failed');
   const interrupted = all.filter((i) => i.status === 'interrupted');
-
-  // Test/dry-run markers are deliberately excluded rather than filtered at
-  // display time — see AGENTS.md on not producing numbers that could be
-  // mistaken for real leaderboard activity.
-  const isSettled = (i) => i.payer && !/TEST|DRYRUN|LIVERUN/i.test(i.payer) && i.settlement?.txHash;
-
-  // A settlement from Encode's own payout address is a real on-chain
-  // transaction and no evidence of anything — it's value moving between two
-  // wallets one party controls. Counted separately, never in uniqueSigners.
-  const isIndependent = (i) => isSettled(i) && !i.settlement?.selfFunded;
+  const refunded = all.filter((i) => i.status === 'refunded');
 
   const settled = all.filter(isSettled);
   const independent = all.filter(isIndependent);
@@ -321,8 +364,12 @@ export function getStats() {
     failed: failed.length,
     interrupted: interrupted.length,
     // Paid for, terminal, and never delivered. Surfaced because it's the one
-    // number that represents money owed rather than work done.
-    unfulfilledPaid: all.filter((i) => isIndependent(i) && (i.status === 'interrupted' || i.status === 'failed')).length,
+    // number that represents money owed rather than work done. A refunded
+    // row has dropped out of `failed`/`interrupted`, so it no longer counts.
+    unfulfilledPaid: all.filter(isUnfulfilledPaid).length,
+    // Debts that have been paid back — the counterpart to unfulfilledPaid, so
+    // a run that made a payer whole is visible rather than just absent.
+    refunded: refunded.length,
     uniqueSigners: uniquePayers.size,
     totalValueProcessed: totalValue.toFixed(2),
     settledPayments: independent.length,
