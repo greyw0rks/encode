@@ -17,6 +17,7 @@
     "register:identity": "node scripts/registerAgentIdentity.js",
     "refund": "node scripts/refund.js",
     "refund:list": "node scripts/refund.js --list",
+    "refund:auto": "node scripts/refund.js --auto",
     "pay": "node scripts/payDemo.js",
     "dry": "node scripts/dryRun.js"
   },

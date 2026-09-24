@@ -1,6 +1,6 @@
 import { execFile } from 'child_process';
 import { promisify } from 'util';
-import { mkdtemp, rm, access } from 'fs/promises';
+import { mkdtemp, rm, access, readFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { checkBashCommand } from '../agents/bashPolicy.js';
@@ -55,6 +55,29 @@ async function hasPackageJson(repoPath) {
 }
 
 /**
+ * The repo's `npm test` command, or null when there is nothing real to run.
+ *
+ * This is the difference between "the suite failed" and "there is no suite":
+ * `npm test` exits non-zero in BOTH cases (a missing test script hits npm's
+ * placeholder `echo "Error: no test specified" && exit 1`), so a bare exit
+ * code can't tell them apart. A repo with no runnable suite hasn't failed
+ * verification — Encode simply has no test signal for it, which is a different
+ * outcome with a different consequence (see verifyFix's `verifiable`).
+ */
+async function readTestScript(repoPath) {
+  try {
+    const pkg = JSON.parse(await readFile(join(repoPath, 'package.json'), 'utf8'));
+    const test = pkg?.scripts?.test;
+    if (typeof test !== 'string' || test.trim() === '') return null;
+    // npm's scaffolded placeholder is not a suite; treat it as absent.
+    if (/no test specified/i.test(test)) return null;
+    return test;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Runs the repro command against the pre-patch tree in a throwaway worktree,
  * so the patched clone is never mutated to do it. Returns null when the
  * baseline can't be established (no base commit, or worktree setup failed) —
@@ -94,21 +117,34 @@ async function checkBaseline({ repoPath, baseCommit, reproCommand }) {
 export async function verifyFix({ repoPath, branch, reproCommand = null, baseCommit = null }) {
   const report = {
     branch,
-    testsPassed: false,
+    testsAvailable: null,
+    testsPassed: null,
     testOutput: '',
     reproCommand: null,
     reproPassesOnFix: null,
     reproFailedOnBaseline: null,
     originalFailureResolved: null,
     verificationDepth: 'tests-only',
+    verifiable: false,
     notes: [],
     verifiedAt: new Date().toISOString(),
   };
 
-  const testResult = await runStep('npm test --silent', repoPath);
-  report.testsPassed = testResult.passed;
-  report.testOutput = testResult.output.slice(0, 8000);
-  if (testResult.timedOut) report.notes.push(`test run timed out after ${STEP_TIMEOUT_MS}ms`);
+  // Absent tests are "no signal", not "failed". Running `npm test` on a repo
+  // with no test script exits non-zero exactly as a failing suite does, so we
+  // decide up front whether there is anything to run and record that fact —
+  // otherwise a correct patch on a test-less repo is scored as a failure.
+  const testScript = await readTestScript(repoPath);
+  report.testsAvailable = testScript !== null;
+  if (report.testsAvailable) {
+    const testResult = await runStep('npm test --silent', repoPath);
+    report.testsPassed = testResult.passed;
+    report.testOutput = testResult.output.slice(0, 8000);
+    if (testResult.timedOut) report.notes.push(`test run timed out after ${STEP_TIMEOUT_MS}ms`);
+  } else {
+    // testsPassed stays null: unknown, never silently false.
+    report.notes.push('no runnable npm test script in the repo — no test-suite signal is available');
+  }
 
   // A repro command from the model is still model input — it runs on this
   // machine, so it goes through the same policy as the agent's own bash.
@@ -154,8 +190,26 @@ export async function verifyFix({ repoPath, branch, reproCommand = null, baseCom
     report.verificationDepth = 'repro-unconfirmed';
   }
 
-  // Tests passing is the floor. A confirmed repro upgrades confidence; a
-  // repro that's known-failing on the patch blocks the PR outright.
-  report.resolved = report.testsPassed && report.originalFailureResolved !== false;
+  // "Verifiable" = Encode had at least one check it could actually run: a test
+  // suite, or a repro command that executed on the patch. With neither, the
+  // run produced no signal at all — that's `unverifiable`, and it's the case
+  // that must not be billed as if a fix were attempted and found wanting.
+  const reproRan = report.reproPassesOnFix !== null;
+  report.verifiable = report.testsAvailable === true || reproRan;
+  if (!report.verifiable) report.verificationDepth = 'unverifiable';
+
+  // Deliver only on a positive signal that nothing contradicts:
+  //   positive = tests passed, OR the repro is confirmed (failed before,
+  //              passes after) — a confirmed repro stands on its own, so a
+  //              repo with no test suite can still ship a verified fix.
+  //   negative = a present test suite failed, OR the repro still fails on the
+  //              patch. Either one blocks the PR outright.
+  // Absent tests contribute neither: testsPassed is null, so a test-less repo
+  // is no longer scored as a failure — it either clears on a confirmed repro
+  // or falls through as `unverifiable`.
+  const positive = report.testsPassed === true || report.verificationDepth === 'repro-confirmed';
+  const negative = (report.testsAvailable === true && report.testsPassed === false)
+    || report.originalFailureResolved === false;
+  report.resolved = positive && !negative;
   return report;
 }

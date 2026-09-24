@@ -315,6 +315,18 @@ export function listUnfulfilledPaid() {
 }
 
 /**
+ * The subset of outstanding debts that are safe to pay back without a human
+ * looking at each one: fix runs that failed specifically because Encode had no
+ * verification signal to run (`refundReason === 'no_verification_signal'`), so
+ * the payer got nothing Encode could stand behind. A `verification_failed`
+ * debt is deliberately NOT here — Encode did run a check and the fix was shown
+ * not to hold, which is a judgement call to refund, not an automatic one.
+ */
+export function listAutoRefundable() {
+  return allIncidents().filter((i) => isUnfulfilledPaid(i) && i.refundReason === 'no_verification_signal');
+}
+
+/**
  * Record an outbound refund against an incident. Deliberately guarded rather
  * than a bare updateIncident: a refund moves real USDC, so the record must
  * refuse to (a) refund something that was never an outstanding debt, or

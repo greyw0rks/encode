@@ -121,7 +121,20 @@ async function runIncident(id) {
   updateIncident(id, { verification });
 
   if (!verification.resolved) {
-    updateIncident(id, { status: 'failed', error: `verification_failed: ${verification.notes.join('; ')}` });
+    // Two very different terminal states share "no PR opened":
+    //   - unverifiable: Encode had no test suite and no runnable repro, so it
+    //     could not tell whether the patch works. The payer paid $0.50 and
+    //     Encode delivered nothing it can stand behind — that's a debt, so the
+    //     incident is flagged for refund (paid back by `refund.js --auto`).
+    //   - verification_failed: Encode DID run a check and it came back negative
+    //     (a present suite failed, or the repro still fails on the patch). Work
+    //     was performed and the fix was shown not to hold; not a refund class.
+    const unverifiable = verification.verifiable === false;
+    updateIncident(id, {
+      status: 'failed',
+      error: `${unverifiable ? 'no_verification_signal' : 'verification_failed'}: ${verification.notes.join('; ')}`,
+      ...(unverifiable ? { refundOwed: true, refundReason: 'no_verification_signal' } : {}),
+    });
     await cleanupRepo(repoLocalPath);
     return;
   }
