@@ -10,7 +10,7 @@
  * facilitator pull the quoted amount from the signing wallet, once.
  *
  *   node scripts/payDemo.js --url http://localhost:8787/v1/incidents
- *   node scripts/payDemo.js --url https://encode.example/v1/incidents --pay \
+ *   node scripts/payDemo.js --url https://encode-production.up.railway.app/v1/incidents --pay \
  *     --repo owner/name --summary "..." --tier triage --max-usd 2
  *
  * The signing key comes from PAYER_PRIVATE_KEY, and is only read when --pay

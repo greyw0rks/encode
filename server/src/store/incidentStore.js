@@ -6,6 +6,8 @@ import { dirname, join } from 'path';
 /**
  * Incident lifecycle: detected -> diagnosing -> fix_drafted -> resolved -> failed
  *                     (any non-terminal status -> interrupted, on restart)
+ *                     recovered: imported from chain state, no record behind it
+ *                     refunded: a paid-but-undelivered debt paid back on-chain
  *
  * Backed by SQLite, not a Map, because settlements are real money and the
  * record of them was previously only in RAM: a redeploy erased the evidence
@@ -188,6 +190,168 @@ export function reconcileInterrupted() {
 }
 
 /**
+ * Settlements that survive only as chain state.
+ *
+ * These were paid to the earlier Encode deployment — `encode-api-production`,
+ * the service the Vercel page used to point at. That app is gone (`Application
+ * not found`) and so is its volume, so the incident records it wrote do not
+ * exist anywhere: no summary, no diagnosis, no verification, and nothing that
+ * says what the payer received for the money.
+ *
+ * The settlements themselves are still checkable by anyone, because they are
+ * on Celo. So they are imported as `recovered`, a status that claims exactly
+ * what the evidence supports and refuses to be read as anything else:
+ *
+ *   - Counted in `uniqueSigners` / `settledPayments` / `totalValueProcessed`.
+ *     The USDC moved from a wallet Encode does not control, so it is a real
+ *     independent payment, and dropping it would understate the one number
+ *     every track is judged on.
+ *   - Never counted as `resolved` — no record says the work landed.
+ *   - Never counted as `unfulfilledPaid` either. "Paid, not delivered" is a
+ *     debt, and a row with no record behind it cannot establish that nothing
+ *     was delivered. Guessing either way would put a number on the ledger
+ *     that no evidence stands behind.
+ *
+ * Append-only, and each entry is keyed by its transaction hash: re-running the
+ * import is a no-op, so a redeploy can't duplicate a payment.
+ */
+const RECOVERED_SETTLEMENTS = [
+  {
+    // $0.50 USDC, the fix tier — the price Encode charged from 2026-08-30.
+    txHash: '0x1db5da61df9f00233cfce3325c251e59d0604b0dc43b4d02a984b353d65714af',
+    payer: '0x22bF1B846A91c81c24B8eD42544D6A6B749d21dF',
+    amount: '0.50',
+    block: 76394934,
+    settledAt: '2026-09-01T20:48:12.000Z',
+    summary: 'Settlement recovered from Celo — the incident record did not survive with it',
+  },
+];
+
+/** Deterministic from the tx hash, so the same payment can never land twice. */
+const recoveredId = (txHash) => `inc_recov_${txHash.slice(2, 10)}`;
+
+export function backfillRecoveredSettlements() {
+  const imported = [];
+
+  for (const settlement of RECOVERED_SETTLEMENTS) {
+    const id = recoveredId(settlement.txHash);
+    if (getIncident(id)) continue;
+
+    const now = new Date().toISOString();
+    write({
+      id,
+      summary: settlement.summary,
+      // Everything below is unknown rather than absent: null says "not
+      // recorded", where a plausible guess would say "true" and be wrong.
+      repo: null,
+      logsRef: null,
+      tier: null,
+      status: 'recovered',
+      payer: settlement.payer,
+      settlement: {
+        txHash: settlement.txHash,
+        amount: settlement.amount,
+        asset: 'USDC',
+        network: 'celo',
+        // Not the payout address, so not self-funded — but see the note on
+        // `isIndependent`: this is a claim about who paid, nothing more.
+        selfFunded: false,
+        settledAt: settlement.settledAt,
+      },
+      attribution: null,
+      diagnosis: null,
+      repairPlan: null,
+      baseCommit: null,
+      patch: null,
+      pr: null,
+      verification: null,
+      recovered: {
+        source: 'celo',
+        block: settlement.block,
+        recoveredAt: now,
+        incidentRecordLost: true,
+      },
+      // Dated when the money moved, not when it was recovered, so the ledger
+      // orders by when each payment actually happened.
+      createdAt: settlement.settledAt,
+      updatedAt: now,
+    });
+    imported.push(id);
+  }
+
+  if (imported.length > 0) {
+    console.warn(
+      `[store] imported ${imported.length} recovered settlement(s) from Celo — ` +
+        `paid, but with no surviving record of what was delivered: ${imported.join(', ')}`
+    );
+  }
+  return imported;
+}
+
+// Test/dry-run markers are deliberately excluded rather than filtered at
+// display time — see AGENTS.md on not producing numbers that could be
+// mistaken for real leaderboard activity.
+const isSettled = (i) => i.payer && !/TEST|DRYRUN|LIVERUN/i.test(i.payer) && i.settlement?.txHash;
+
+// A settlement from Encode's own payout address is a real on-chain
+// transaction and no evidence of anything — it's value moving between two
+// wallets one party controls. Counted separately, never in uniqueSigners.
+const isIndependent = (i) => isSettled(i) && !i.settlement?.selfFunded;
+
+// Paid for, terminal, and never delivered — a debt. `refunded` is excluded:
+// once the payer is made whole the debt is settled, not outstanding. A
+// `recovered` row is excluded too, deliberately: no surviving record can
+// establish that nothing was delivered (see backfillRecoveredSettlements).
+const isUnfulfilledPaid = (i) =>
+  isIndependent(i) && (i.status === 'interrupted' || i.status === 'failed') && !i.refund?.txHash;
+
+/**
+ * The payers Encode owes money: independent settlements that reached a
+ * terminal non-delivery state and have not yet been refunded. This is the
+ * list a refund run works from — never inferred from an address alone.
+ */
+export function listUnfulfilledPaid() {
+  return allIncidents().filter(isUnfulfilledPaid);
+}
+
+/**
+ * The subset of outstanding debts that are safe to pay back without a human
+ * looking at each one: fix runs that failed specifically because Encode had no
+ * verification signal to run (`refundReason === 'no_verification_signal'`), so
+ * the payer got nothing Encode could stand behind. A `verification_failed`
+ * debt is deliberately NOT here — Encode did run a check and the fix was shown
+ * not to hold, which is a judgement call to refund, not an automatic one.
+ */
+export function listAutoRefundable() {
+  return allIncidents().filter((i) => isUnfulfilledPaid(i) && i.refundReason === 'no_verification_signal');
+}
+
+/**
+ * Record an outbound refund against an incident. Deliberately guarded rather
+ * than a bare updateIncident: a refund moves real USDC, so the record must
+ * refuse to (a) refund something that was never an outstanding debt, or
+ * (b) refund twice. The on-chain send has already happened by the time this
+ * is called — this is the durable memory of it, keyed so a re-run is a no-op.
+ */
+export function refundIncident(id, refund) {
+  const record = getIncident(id);
+  if (!record) return { ok: false, reason: 'not_found' };
+  if (record.refund?.txHash) return { ok: false, reason: 'already_refunded', record };
+  if (!isUnfulfilledPaid(record)) return { ok: false, reason: 'not_an_outstanding_debt', record };
+
+  return {
+    ok: true,
+    record: write(
+      Object.assign(record, {
+        status: 'refunded',
+        refund: { ...refund, at: new Date().toISOString() },
+        updatedAt: new Date().toISOString(),
+      })
+    ),
+  };
+}
+
+/**
  * Dashboard aggregates. `uniqueSigners` is the number the leaderboard actually
  * judges on, so it's counted from settled payments only — a 402'd or failed
  * request never created an incident, but a test-marked payer must not
@@ -198,16 +362,7 @@ export function getStats() {
   const resolved = all.filter((i) => i.status === 'resolved');
   const failed = all.filter((i) => i.status === 'failed');
   const interrupted = all.filter((i) => i.status === 'interrupted');
-
-  // Test/dry-run markers are deliberately excluded rather than filtered at
-  // display time — see AGENTS.md on not producing numbers that could be
-  // mistaken for real leaderboard activity.
-  const isSettled = (i) => i.payer && !/TEST|DRYRUN|LIVERUN/i.test(i.payer) && i.settlement?.txHash;
-
-  // A settlement from Encode's own payout address is a real on-chain
-  // transaction and no evidence of anything — it's value moving between two
-  // wallets one party controls. Counted separately, never in uniqueSigners.
-  const isIndependent = (i) => isSettled(i) && !i.settlement?.selfFunded;
+  const refunded = all.filter((i) => i.status === 'refunded');
 
   const settled = all.filter(isSettled);
   const independent = all.filter(isIndependent);
@@ -221,8 +376,12 @@ export function getStats() {
     failed: failed.length,
     interrupted: interrupted.length,
     // Paid for, terminal, and never delivered. Surfaced because it's the one
-    // number that represents money owed rather than work done.
-    unfulfilledPaid: all.filter((i) => isIndependent(i) && (i.status === 'interrupted' || i.status === 'failed')).length,
+    // number that represents money owed rather than work done. A refunded
+    // row has dropped out of `failed`/`interrupted`, so it no longer counts.
+    unfulfilledPaid: all.filter(isUnfulfilledPaid).length,
+    // Debts that have been paid back — the counterpart to unfulfilledPaid, so
+    // a run that made a payer whole is visible rather than just absent.
+    refunded: refunded.length,
     uniqueSigners: uniquePayers.size,
     totalValueProcessed: totalValue.toFixed(2),
     settledPayments: independent.length,

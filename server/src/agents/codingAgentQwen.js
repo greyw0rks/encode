@@ -17,7 +17,7 @@ import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import { resolve, dirname, relative, isAbsolute } from 'path';
-import { llmClient, modelFor } from '../llm/provider.js';
+import { createMessage, modelFor } from '../llm/provider.js';
 import { ALLOWED_BASH_PREFIXES, checkBashCommand } from './bashPolicy.js';
 import { childEnv } from './childEnv.js';
 
@@ -192,9 +192,6 @@ export async function draftFixWithToolLoop({
   branch,
   onEvent = () => {},
 }) {
-  const client = llmClient();
-  const model = modelFor('coding');
-
   const messages = [
     {
       role: 'user',
@@ -217,8 +214,7 @@ Investigate, patch, test, commit to that branch, then call submit_fix.`,
   let submission = null;
 
   for (let turn = 0; turn < MAX_TURNS; turn++) {
-    const response = await client.messages.create({
-      model,
+    const response = await createMessage('coding', {
       max_tokens: 8000,
       system: SYSTEM_PROMPT,
       tools: TOOLS,
@@ -277,7 +273,9 @@ Investigate, patch, test, commit to that branch, then call submit_fix.`,
   return {
     branch,
     strategy: 'encode-tool-loop',
-    model,
+    // The configured coding model; a per-call fallback switch is logged rather
+    // than reflected here, since the run can span both endpoints.
+    model: modelFor('coding'),
     diffSummary: submission?.diffSummary ?? null,
     prDescription: submission?.prDescription ?? null,
     testsPassed: submission?.testsPassed ?? false,

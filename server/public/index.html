@@ -436,8 +436,9 @@
             <span class="y">now</span>
           </div>
           <p class="entry">
-            <b>No independent payer yet.</b> The ledger below is empty and says so. It fills in from
-            <span class="m">GET /v1/dashboard</span> as real settlements land.
+            <b>Independent wallets are paying.</b> The rows below are read live from
+            <span class="m">GET /v1/dashboard</span> and count only wallets Encode doesn't control. Follow any row
+            to Celoscan rather than taking the totals on faith.
           </p>
         </div>
       </div>
@@ -602,7 +603,7 @@
 
 <span class="c1">// Quote, sign, retry — one call.</span>
 <span class="c1">const</span> result = <span class="c1">await</span> <span class="c2">payAndRequest</span>({
-  url: <span class="c3">'https://encode-api-production.up.railway.app/v1/incidents'</span>,
+  url: <span class="c3">'https://encode-production.up.railway.app/v1/incidents'</span>,
   body: {
     summary: <span class="c3">'Export job emits duplicate rows'</span>,
     repo: { owner: <span class="c3">'you'</span>, name: <span class="c3">'your-app'</span> },
@@ -690,9 +691,8 @@ console.<span class="c2">log</span>(result.body.statusUrl);
         </div>
 
         <div class="metrics">
+          <div class="metric"><div class="v" id="m-settlements">—</div><div class="l">Settlements</div></div>
           <div class="metric"><div class="v" id="m-signers">—</div><div class="l">Independent signers</div></div>
-          <div class="metric"><div class="v" id="m-value">—</div><div class="l">Settled</div></div>
-          <div class="metric"><div class="v" id="m-resolved">—</div><div class="l">Incidents resolved</div></div>
           <div class="metric" id="m-owed-card"><div class="v" id="m-owed">—</div><div class="l">Paid, not delivered</div></div>
         </div>
       </div>
@@ -731,10 +731,17 @@ const short = (s, head = 6, tail = 4) =>
  * delivery. `interrupted` means the run was cut short by a restart and the
  * payer holds nothing — money owed, not work done. Saying so on the row is
  * most of the reason to publish a ledger at all.
+ *
+ * `recovered` is the one row that settles nothing: the payment is real and on
+ * Celo, but the incident record it was attached to is gone, so what the payer
+ * received is unknown. It gets a flag rather than an assumed outcome —
+ * "resolved" would claim work that isn't evidenced, and "not delivered" would
+ * claim a debt that isn't evidenced either.
  */
 const FLAGS = {
   interrupted: ['owed', 'paid · not delivered'],
   failed: ['owed', 'paid · no fix'],
+  recovered: ['', 'record lost · settled on-chain'],
   detected: ['', 'in progress'],
   diagnosing: ['', 'in progress'],
   fix_drafted: ['', 'in progress'],
@@ -772,9 +779,8 @@ function renderLedger(data) {
   const s = data.stats || {};
   const confirmed = settled.filter((r) => r.verificationDepth === 'repro-confirmed').length;
 
+  setText('m-settlements', s.settledPayments ?? 0);
   setText('m-signers', s.uniqueSigners ?? 0);
-  setText('m-value', `$${s.totalValueProcessed ?? '0.00'}`);
-  setText('m-resolved', s.resolved ?? 0);
   setText('m-owed', s.unfulfilledPaid ?? 0);
 
   // Said plainly rather than implied: "resolved" and "the original failure was
@@ -786,6 +792,18 @@ function renderLedger(data) {
       : `${confirmed} of ${settled.length} settled incident${settled.length === 1 ? ' is' : 's are'} repro-confirmed — ` +
         'the reported failure was reproduced before the patch and no longer reproduces after it. ' +
         'Verified by test suite alone counts as resolved but not confirmed.';
+
+  // The counts above would otherwise read as a verdict on every row. A
+  // recovered row has no recorded outcome at all, so it is named rather than
+  // left to be inferred from arithmetic that can't speak to it.
+  const recovered = settled.filter((r) => r.status === 'recovered').length;
+  if (recovered > 0) {
+    text +=
+      ` ${recovered} of them ${recovered === 1 ? 'is' : 'are'} a settlement recovered from Celo: ` +
+      'the payment is real and checkable, but the incident record it belonged to did not survive an earlier ' +
+      'deployment, so there is no evidence either way about what was delivered — which is why it is counted ' +
+      'as neither resolved nor unpaid.';
+  }
 
   const owed = Number(s.unfulfilledPaid || 0);
   if (owed > 0) {
@@ -826,7 +844,7 @@ fetch(`${API_BASE}/v1/dashboard`)
     $('ledger-rows').innerHTML =
       '<tr><td colspan="4" class="mono" style="color:var(--faint);">Ledger unavailable — the API isn\'t reachable from here.</td></tr>';
     $('ledger-note').textContent = '';
-    for (const id of ['m-signers', 'm-value', 'm-resolved', 'm-owed']) setText(id, '—');
+    for (const id of ['m-settlements', 'm-signers', 'm-owed']) setText(id, '—');
   });
 
 fetch(`${API_BASE}/v1/status`)

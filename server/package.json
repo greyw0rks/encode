@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
-    "test": "node scripts/verifyHarness.js && node scripts/toolLoopHarness.js && node scripts/deliveryHarness.js",
+    "test": "node scripts/verifyHarness.js && node scripts/recoveredHarness.js && node scripts/toolLoopHarness.js && node scripts/deliveryHarness.js",
     "test:verify": "node scripts/verifyHarness.js",
     "test:loop": "node scripts/toolLoopHarness.js",
     "test:delivery": "node scripts/deliveryHarness.js",
@@ -15,6 +15,9 @@
     "test:facilitator": "node scripts/facilitatorHarness.js",
     "test:probe": "node scripts/probeToolUse.js",
     "register:identity": "node scripts/registerAgentIdentity.js",
+    "refund": "node scripts/refund.js",
+    "refund:list": "node scripts/refund.js --list",
+    "refund:auto": "node scripts/refund.js --auto",
     "pay": "node scripts/payDemo.js",
     "dry": "node scripts/dryRun.js"
   },

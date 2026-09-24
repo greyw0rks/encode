@@ -78,6 +78,35 @@ async function applyFix(dir) {
   await git(['commit', '-q', '-m', 'fix: add() was subtracting'], dir);
 }
 
+/**
+ * Same genuine bug, but the repo has NO npm test script — the case that used
+ * to be misread as a failed suite (npm test exits non-zero either way).
+ */
+async function makeTestlessBrokenRepo() {
+  const dir = await mkdtemp(join(tmpdir(), 'encode-verify-notest-'));
+  await mkdir(join(dir, 'src'), { recursive: true });
+
+  await writeFile(
+    join(dir, 'package.json'),
+    JSON.stringify({ name: 'fixture-notest', version: '1.0.0', type: 'module' }, null, 2)
+  );
+  await writeFile(join(dir, 'src/math.js'), 'export function add(a, b) {\n  return a - b;\n}\n');
+  await writeFile(
+    join(dir, 'repro.js'),
+    `import { add } from './src/math.js';\nprocess.exit(add(2, 3) === 5 ? 0 : 1);\n`
+  );
+
+  await git(['init', '-q'], dir);
+  await git(['config', 'user.email', 'test@encode.local'], dir);
+  await git(['config', 'user.name', 'Encode Test'], dir);
+  await git(['add', '.'], dir);
+  await git(['commit', '-q', '-m', 'initial (with bug, no tests)'], dir);
+  const baseCommit = (await git(['rev-parse', 'HEAD'], dir)).stdout.trim();
+
+  await git(['checkout', '-q', '-b', 'encode/fix-test'], dir);
+  return { dir, baseCommit };
+}
+
 async function caseUnpatchedFails() {
   console.log('\n[1] Unpatched repo — tests fail, must NOT report resolved');
   const { dir, baseCommit } = await makeBrokenRepo();
@@ -322,6 +351,71 @@ async function casePersistenceAcrossProcesses() {
   }
 }
 
+async function caseNoTestsNoRepro() {
+  console.log('\n[9] No test suite, no repro — unverifiable, must NOT resolve (this is the money-burn case)');
+  const { dir } = await makeTestlessBrokenRepo();
+  try {
+    // A patch is present, but with no suite and no repro nothing can prove it.
+    await applyFix(dir);
+    const report = await verifyFix({ repoPath: dir, branch: 'encode/fix-test', reproCommand: null });
+    check('testsAvailable is false', report.testsAvailable === false);
+    check('testsPassed is null, not false', report.testsPassed === null, String(report.testsPassed));
+    check('verifiable is false', report.verifiable === false);
+    check('verificationDepth is unverifiable', report.verificationDepth === 'unverifiable', report.verificationDepth);
+    check('resolved is false', report.resolved === false);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+}
+
+async function caseNoTestsConfirmedRepro() {
+  console.log('\n[10] No test suite but a confirmed repro — must resolve on the repro alone');
+  const { dir, baseCommit } = await makeTestlessBrokenRepo();
+  try {
+    await applyFix(dir);
+    const report = await verifyFix({
+      repoPath: dir,
+      branch: 'encode/fix-test',
+      reproCommand: 'node repro.js',
+      baseCommit,
+    });
+    check('testsAvailable is false', report.testsAvailable === false);
+    check('repro passes on the fix', report.reproPassesOnFix === true);
+    check('repro failed on the baseline', report.reproFailedOnBaseline === true);
+    check('verificationDepth is repro-confirmed', report.verificationDepth === 'repro-confirmed', report.verificationDepth);
+    check('verifiable is true', report.verifiable === true);
+    check('resolved is true (a confirmed repro stands on its own)', report.resolved === true);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+}
+
+async function caseAutoRefundable() {
+  console.log('\n[11] Auto-refund selection — only no-verification-signal debts are swept');
+  const { createIncident, updateIncident, listAutoRefundable } = await import('../src/store/incidentStore.js');
+
+  const mk = (payer, extra) => {
+    const i = createIncident({
+      summary: 's',
+      repo: {},
+      tier: 'fix',
+      payer,
+      settlement: { txHash: `0x${Math.random().toString(16).slice(2)}`, amount: '0.50', selfFunded: false },
+    });
+    return updateIncident(i.id, { status: 'failed', error: 'x', ...extra });
+  };
+
+  const noSignal = mk('0xEEEE000000000000000000000000000000000005', {
+    refundOwed: true,
+    refundReason: 'no_verification_signal',
+  });
+  const verifiedBad = mk('0xFFFF000000000000000000000000000000000006', {});
+
+  const auto = listAutoRefundable();
+  check('auto-refund list includes the no-signal debt', auto.some((i) => i.id === noSignal.id));
+  check('auto-refund list excludes the verification_failed debt', !auto.some((i) => i.id === verifiedBad.id));
+}
+
 async function main() {
   console.log('Encode verification harness — real git, real failing test, no LLM calls.');
 
@@ -333,6 +427,9 @@ async function main() {
   await caseSelfFundedExclusion();
   await caseInterruptedReconciliation();
   await casePersistenceAcrossProcesses();
+  await caseNoTestsNoRepro();
+  await caseNoTestsConfirmedRepro();
+  await caseAutoRefundable();
 
   console.log(
     failures === 0

@@ -23,7 +23,7 @@
  *   import { payAndRequest } from './x402Client.js';
  *
  *   const result = await payAndRequest({
- *     url: 'https://encode.example/v1/incidents',
+ *     url: 'https://encode-production.up.railway.app/v1/incidents',
  *     body: { summary: '...', repo: { owner: 'me', name: 'my-app' }, tier: 'fix' },
  *     signer: new Wallet(process.env.PRIVATE_KEY),
  *   });

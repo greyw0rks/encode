@@ -134,11 +134,11 @@ An unpaid `POST /v1/incidents` returns the quote as `accepts[]`, with **base-uni
 
 ```bash
 # See the price without paying — safe to run against production
-npm run pay -- --url https://encode.example/v1/incidents --tier fix
+npm run pay -- --url https://encode-production.up.railway.app/v1/incidents --tier fix
 
 # Sign and submit. THIS MOVES REAL MONEY.
 PAYER_PRIVATE_KEY=0x... npm run pay -- \
-  --url https://encode.example/v1/incidents \
+  --url https://encode-production.up.railway.app/v1/incidents \
   --repo you/your-app --summary "..." --tier triage --max-usd 2 --pay
 ```
 

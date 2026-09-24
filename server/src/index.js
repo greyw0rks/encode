@@ -7,7 +7,7 @@ import dashboardRouter from './dashboard/routes.js';
 import { providerSummary } from './llm/provider.js';
 import { paymentConfig } from './celo/paymentConfig.js';
 import { rateLimit } from './middleware/rateLimit.js';
-import { reconcileInterrupted } from './store/incidentStore.js';
+import { reconcileInterrupted, backfillRecoveredSettlements } from './store/incidentStore.js';
 
 // Resolved from this module's own location, not the process cwd: the image
 // runs with cwd=/app but a local `node src/index.js` from anywhere else would
@@ -19,6 +19,12 @@ const publicDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 
 // store belongs to a process that no longer exists, so resolve that before
 // serving — otherwise the ledger shows work in progress that nobody is doing.
 reconcileInterrupted();
+
+// Payments taken by the earlier deployment outlived the records of them: the
+// chain kept the settlement, the store did not survive. Re-imported at boot so
+// the ledger counts money that actually moved. Idempotent — see the note on
+// RECOVERED_SETTLEMENTS.
+backfillRecoveredSettlements();
 
 const app = express();
 
